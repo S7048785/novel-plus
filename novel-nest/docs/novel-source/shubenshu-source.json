@@ -1,0 +1,40 @@
+{
+  "bookSourceName": "书本书",
+  "bookSourceGroup": "",
+  "bookSourceUrl": "https://www.shubenshu.com",
+  "bookSourceType": 0,
+  "enabled": true,
+  "enabledExplore": true,
+  "header": "{\"User-Agent\": \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36\", \"Accept-Language\": \"zh-CN,zh;q=0.9\"}",
+  "searchUrl": "/e/search/,{\"method\":\"POST\",\"body\":\"show=title,ftitle,writer&keyboard={key}\",\"headers\":{\"Content-Type\":\"application/x-www-form-urlencoded\"}}",
+  "exploreUrl": "玄幻::https://www.shubenshu.com/list_1/{{page}}.html\n武侠::https://www.shubenshu.com/list_2/{{page}}.html\n都市::https://www.shubenshu.com/list_3/{{page}}.html\n历史::https://www.shubenshu.com/list_4/{{page}}.html\n科幻::https://www.shubenshu.com/list_5/{{page}}.html\n游戏::https://www.shubenshu.com/list_6/{{page}}.html\n恐怖::https://www.shubenshu.com/list_7/{{page}}.html\n言情::https://www.shubenshu.com/list_8/{{page}}.html\n同人::https://www.shubenshu.com/list_9/{{page}}.html\n其他::https://www.shubenshu.com/list_10/{{page}}.html",
+  "ruleExplore": {
+    "bookList": "#hotcontent .item",
+    "name": "dl > dt > a@text",
+    "author": ".btm a@text",
+    "bookUrl": "dl > dt > a@href",
+    "coverUrl": ".image a img@data-original"
+  },
+  "ruleSearch": {
+    "bookList": "#hotcontent .item",
+    "name": "dl > dt > a@text",
+    "author": ".btm a@text",
+    "bookUrl": "dl > dt > a@href",
+    "coverUrl": ".image a img@data-original"
+  },
+  "ruleBookInfo": {
+    "name": "#info h1@text",
+    "author": "#info > p > a@text",
+    "intro": "#intro@text",
+    "coverUrl": "#fmimg img@data-original",
+    "tocUrl": "a.chapterlist@href"
+  },
+  "ruleToc": {
+    "chapterList": "#list a:not([style])",
+    "chapterName": "dd@text",
+    "chapterUrl": "@href"
+  },
+  "ruleContent": {
+    "content": "#booktxt@html"
+  }
+}

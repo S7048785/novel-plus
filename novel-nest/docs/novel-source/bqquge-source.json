@@ -1,0 +1,41 @@
+{
+  "bookSourceName": "笔趣阁",
+  "bookSourceGroup": "",
+  "bookSourceUrl": "https://www.bqquge.org",
+  "bookSourceType": 0,
+  "charset": "utf-8",
+  "enabled": true,
+  "enabledExplore": true,
+  "header": "{\"User-Agent\": \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36\"}",
+  "searchUrl": "/so?key={key}",
+  "exploreUrl": "玄幻::https://www.bqquge.org/xuanhuan/{{page}}\n奇幻::https://www.bqquge.org/qihuan/{{page}}\n武侠::https://www.bqquge.org/wuxia/{{page}}\n仙侠::https://www.bqquge.org/xianxia/{{page}}\n都市::https://www.bqquge.org/dushi/{{page}}\n军事::https://www.bqquge.org/junshi/{{page}}\n历史::https://www.bqquge.org/lishi/{{page}}\n游戏::https://www.bqquge.org/youxi/{{page}}\n科幻::https://www.bqquge.org/kehuan/{{page}}\n悬疑::https://www.bqquge.org/xuanyi/{{page}}\n轻小说::https://www.bqquge.org/qing/{{page}}\n穿越::https://www.bqquge.org/chuanyue/{{page}}\n言情::https://www.bqquge.org/yanqing/{{page}}",
+  "ruleExplore": {
+    "bookList": ".item",
+    "name": ".itemtxt h3 a@text",
+    "author": ".itemtxt p a@text##作者[：:]\\s*",
+    "bookUrl": ".itemtxt h3 a@href",
+    "coverUrl": "a img@src"
+  },
+  "ruleSearch": {
+    "bookList": ".item",
+    "name": ".itemtxt h3 a@text",
+    "author": ".itemtxt p a@text##作者[：:]\\s*",
+    "bookUrl": ".itemtxt h3 a@href",
+    "coverUrl": "a img@src"
+  },
+  "ruleBookInfo": {
+    "name": ".booktxt h1@text",
+    "author": ".booktxt p > a@text##作者[：:]\\s*",
+    "intro": ".des@text",
+    "coverUrl": ".bookdetail > img@src"
+  },
+  "ruleToc": {
+    "chapterList": "#list li a",
+    "chapterName": "@text",
+    "chapterUrl": "@href"
+  },
+  "ruleContent": {
+    "content": ".con@html",
+    "nextContentUrl": "text.下一页@href"
+  }
+}

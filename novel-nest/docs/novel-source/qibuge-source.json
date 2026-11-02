@@ -1,0 +1,42 @@
+{
+  "bookSourceName": "七步阁",
+  "bookSourceGroup": "",
+  "bookSourceUrl": "https://www.qibuge.com",
+  "bookSourceType": 0,
+  "charset": "gbk",
+  "enabled": true,
+  "enabledExplore": true,
+  "header": "{\"User-Agent\": \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36\", \"Accept-Language\": \"zh-CN,zh;q=0.9\"}",
+  "searchUrl": "/search/?searchkey={key},{\"charset\":\"gbk\"}",
+  "exploreUrl": "同人::https://www.qibuge.com/tongren/{{page}}.html\n玄幻奇幻::https://www.qibuge.com/xuanhuan/{{page}}.html\n武侠仙侠::https://www.qibuge.com/wuxia/{{page}}.html\n都市言情::https://www.qibuge.com/dushi/{{page}}.html\n军事历史::https://www.qibuge.com/junshi/{{page}}.html\n科幻网游::https://www.qibuge.com/kehuan/{{page}}.html\n推理灵异::https://www.qibuge.com/tuili/{{page}}.html\n青春校园::https://www.qibuge.com/xiaoyuan/{{page}}.html\n轻小说::https://www.qibuge.com/qingxs/{{page}}.html\n女生小说::https://www.qibuge.com/nvsheng/{{page}}.html",
+  "ruleSearch": {
+    "bookList": ".novelslist2 ul li",
+    "name": ".s2 a@text",
+    "author": ".s4@text",
+    "kind": ".s1@text",
+    "lastChapter": ".s3 a@text",
+    "bookUrl": ".s2 a@href"
+  },
+  "ruleExplore": {
+    "bookList": "div.ll > div.item",
+    "name": "dl > dt > a@text",
+    "author": "dl > dt > span > a@text",
+    "bookUrl": "dl > dt > a@href",
+    "coverUrl": "div.image > a > img@src"
+  },
+  "ruleBookInfo": {
+    "name": "#info h1@text",
+    "author": "#info > p@text##作\\s*者[：:]\\s*",
+    "intro": "#intro@text",
+    "coverUrl": "#fmimg img@src"
+  },
+  "ruleToc": {
+    "chapterList": "#list dd a",
+    "chapterName": "@text",
+    "chapterUrl": "@href"
+  },
+  "ruleContent": {
+    "content": "#content@html",
+    "replaceRegex": "##<p>[\\s\\u00a0]*</p>##"
+  }
+}
