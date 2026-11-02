@@ -11,6 +11,7 @@ import {
   uniqueIndex,
   varchar,
 } from 'drizzle-orm/mysql-core';
+import { relations, sql } from 'drizzle-orm';
 // 表结构是全项目共享的，json 列的类型契约来自 crawl 领域模型。
 // 仅 type import，编译期擦除，不产生运行时依赖（db ← crawl 的方向只在类型层出现）。
 import type { BookSourceConfig } from '../common/model/book-source.js';
@@ -114,6 +115,132 @@ export const bookContent = mysqlTable(
   },
   (t) => [uniqueIndex('uq_content_chapter').on(t.chapterId)],
 );
+
+/* ============================== 鉴权（better-auth） ============================== */
+
+/**
+ * better-auth 要求的 4 张核心表：user / session / account / verification。
+ *
+ * 命名约定与表结构的两条硬约束（改之前先看清楚）：
+ * 1. **表名保持单数默认值**（user/session/...）。drizzle adapter 按模型名查表，
+ *    想把表名改成 users 就得在 auth 配置里逐个写 modelName，收益为零。
+ * 2. **属性名必须保持 camelCase**（emailVerified、userId...）。adapter 认的是 drizzle 的属性名，
+ *    属性名就是 better-auth 的字段契约；列名用 snake_case 只是 `varchar('email_verified')`
+ *    第一参的表达，DB 侧命名规范与库的契约互不干扰。
+ *
+ * 时间列用 datetime 而非 timestamp：timestamp 在 MySQL 里随 session time_zone 做隐式时区换算，
+ * 服务器时区漂移会让已存会话的 expires_at 整体偏移，datetime 存的是字面值不会有这个问题。
+ */
+
+/** 用户表：id 由 better-auth 生成（32 位随机串，varchar(36) 留余量），email 唯一且建库时已小写化 */
+export const user = mysqlTable(
+  'user',
+  {
+    id: varchar('id', { length: 36 }).primaryKey(),
+    name: varchar('name', { length: 255 }).notNull(),
+    email: varchar('email', { length: 255 }).notNull(),
+    /** 无 SMTP，注册流程也没开，该列会一直是 false；保留是为了将来接邮箱验证时不用改表 */
+    emailVerified: boolean('email_verified').notNull().default(false),
+    image: text('image'),
+    createdAt: datetime('created_at', { fsp: 3 }).notNull().default(sql`CURRENT_TIMESTAMP(3)`),
+    updatedAt: datetime('updated_at', { fsp: 3 })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP(3)`)
+      .$onUpdate(() => new Date()),
+  },
+  (t) => [uniqueIndex('uq_user_email').on(t.email)],
+);
+
+/** 会话表：登录态存在这里（不是 JWT），token 是 cookie 里的明文凭据，必须唯一 */
+export const session = mysqlTable(
+  'session',
+  {
+    id: varchar('id', { length: 36 }).primaryKey(),
+    expiresAt: datetime('expires_at', { fsp: 3 }).notNull(),
+    token: varchar('token', { length: 255 }).notNull(),
+    createdAt: datetime('created_at', { fsp: 3 }).notNull().default(sql`CURRENT_TIMESTAMP(3)`),
+    updatedAt: datetime('updated_at', { fsp: 3 })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP(3)`)
+      .$onUpdate(() => new Date()),
+    ipAddress: text('ip_address'),
+    userAgent: text('user_agent'),
+    userId: varchar('user_id', { length: 36 })
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+  },
+  (t) => [uniqueIndex('uq_session_token').on(t.token), index('idx_session_user').on(t.userId)],
+);
+
+/**
+ * 账号表：一个用户可挂多个登录方式，(providerId, accountId) 标识第三方身份。
+ * 邮箱+密码登录对应 providerId='credential'、accountId=用户 id，密码哈希（scrypt）放在 password 列。
+ */
+export const account = mysqlTable(
+  'account',
+  {
+    id: varchar('id', { length: 36 }).primaryKey(),
+    accountId: text('account_id').notNull(),
+    providerId: text('provider_id').notNull(),
+    userId: varchar('user_id', { length: 36 })
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    accessToken: text('access_token'),
+    refreshToken: text('refresh_token'),
+    idToken: text('id_token'),
+    accessTokenExpiresAt: datetime('access_token_expires_at', { fsp: 3 }),
+    refreshTokenExpiresAt: datetime('refresh_token_expires_at', { fsp: 3 }),
+    scope: text('scope'),
+    password: text('password'),
+    createdAt: datetime('created_at', { fsp: 3 }).notNull().default(sql`CURRENT_TIMESTAMP(3)`),
+    updatedAt: datetime('updated_at', { fsp: 3 })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP(3)`)
+      .$onUpdate(() => new Date()),
+  },
+  (t) => [index('idx_account_user').on(t.userId)],
+);
+
+/** 校验表：邮箱验证 / 找回密码的一次性 token 落在这里；当前两个流程都没开，表先建好 */
+export const verification = mysqlTable(
+  'verification',
+  {
+    id: varchar('id', { length: 36 }).primaryKey(),
+    identifier: varchar('identifier', { length: 255 }).notNull(),
+    value: text('value').notNull(),
+    expiresAt: datetime('expires_at', { fsp: 3 }).notNull(),
+    createdAt: datetime('created_at', { fsp: 3 }).notNull().default(sql`CURRENT_TIMESTAMP(3)`),
+    updatedAt: datetime('updated_at', { fsp: 3 })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP(3)`)
+      .$onUpdate(() => new Date()),
+  },
+  (t) => [index('idx_verification_identifier').on(t.identifier)],
+);
+
+/**
+ * relations 只为 drizzle 的关系查询（db.query.user.findMany({ with: { session: true } })）
+ * 与 better-auth 的 joins 优化准备；当前业务查询仍走显式 join，不依赖它。
+ */
+export const userRelations = relations(user, ({ many }) => ({
+  sessions: many(session),
+  accounts: many(account),
+}));
+
+export const sessionRelations = relations(session, ({ one }) => ({
+  user: one(user, { fields: [session.userId], references: [user.id] }),
+}));
+
+export const accountRelations = relations(account, ({ one }) => ({
+  user: one(user, { fields: [account.userId], references: [user.id] }),
+}));
+
+export type UserRow = typeof user.$inferSelect;
+export type NewUserRow = typeof user.$inferInsert;
+export type SessionRow = typeof session.$inferSelect;
+export type NewSessionRow = typeof session.$inferInsert;
+export type AccountRow = typeof account.$inferSelect;
+export type NewAccountRow = typeof account.$inferInsert;
 
 export type CrawlSourceRow = typeof crawlSource.$inferSelect;
 export type NewCrawlSourceRow = typeof crawlSource.$inferInsert;
