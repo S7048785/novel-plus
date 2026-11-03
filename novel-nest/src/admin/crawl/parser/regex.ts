@@ -4,26 +4,6 @@
  * ## 语法：`##正则##替换##`，多个串联；最后一个加 `###` 表示只替换首个匹配。
  */
 
-/** 拆分 ##正则##替换## 为 [正则, 替换, 是否只替换首个] 列表 */
-export function splitLegadoRegex(text: string): { regex: string; replacement: string; firstOnly: boolean }[] {
-  // 用 ## 切分，但正则本身可能含 ##，这里按 reader-rust 的简单切分（## 作为分隔）
-  const parts = text.split('##');
-  // parts[0] 是纯规则部分，之后每两个一组：正则、替换
-  const result: { regex: string; replacement: string; firstOnly: boolean }[] = [];
-  for (let i = 1; i < parts.length; i += 2) {
-    const regex = parts[i];
-    const replacement = parts[i + 1] ?? '';
-    // 最后一个替换段如果以 ### 结尾则只替换首个
-    let firstOnly = false;
-    let actualReplacement = replacement;
-    if (i + 1 === parts.length - 1 && parts[parts.length - 1] === '') {
-      // "##regex##" 结尾（替换省略 = 删除），或 "##regex###" 只替换首个
-    }
-    result.push({ regex, replacement: actualReplacement, firstOnly });
-  }
-  return result;
-}
-
 /**
  * 应用 ## 替换（复刻 reader-rust apply_legado_regex）
  *

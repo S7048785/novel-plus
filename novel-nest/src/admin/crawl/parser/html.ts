@@ -65,7 +65,14 @@ function parseBracketIndexSpec(selector: string): { base: string; indexMode: 'se
   const start = s.lastIndexOf('[');
   if (start < 0) return null;
   const base = s.slice(0, start).trim();
-  let inner = s.slice(start + 1, -1).trim();
+  const parsed = parseIndexInner(s.slice(start + 1, -1));
+  if (!parsed) return null;
+  return { base, indexMode: parsed.indexMode, indexItems: parsed.indexItems };
+}
+
+/** 解析方括号内容（`1`、`0,2,-1`、`1:3`、`!0`、`!1,2`）。非索引内容（如 CSS 属性 `[href]`）返回 null */
+function parseIndexInner(raw: string): { indexMode: 'select' | 'exclude'; indexItems: IndexItem[] } | null {
+  let inner = raw.trim();
   let indexMode: 'select' | 'exclude' = SELECT;
   if (inner.startsWith('!')) {
     inner = inner.slice(1).trim();
@@ -81,7 +88,7 @@ function parseBracketIndexSpec(selector: string): { base: string; indexMode: 'se
       items.push(item);
     }
   }
-  return { base, indexMode, indexItems: items };
+  return { indexMode, indexItems: items };
 }
 
 function parseBracketIndexItem(part: string): IndexItem | null {
@@ -143,6 +150,60 @@ function parseSelectorWithIndex(selector: string): ParsedSelector {
   return { ...parseSelectorBase(s), explicitIndex: false, indexMode: SELECT, indexItems: [] };
 }
 
+/**
+ * 规则级前缀 `-` 表示倒序（对齐 legado：`-class.item` 取反后的结果集）。
+ * 只认最前面一个 `-`，后面的 `-` 可能属于 CSS（如 `nth-child`）不能动。
+ */
+export function splitReverse(rule: string): { rule: string; reverse: boolean } {
+  const t = rule.trim();
+  if (t.startsWith('-') && t.length > 1) {
+    return { rule: t.slice(1).trim(), reverse: true };
+  }
+  return { rule: t, reverse: false };
+}
+
+/**
+ * 找出「不在末尾」的索引方括号，用于支持 `.item[1] a` 这种中间索引。
+ *
+ * 为什么要单独处理：`parseBracketIndexSpec` 要求 `]` 在字符串末尾（那是 `.item[1]` 的形态），
+ * 中间形态若不做切分，`[1]` 会被当成 CSS 属性选择器交给 cheerio → 0 命中且不报错，
+ * 表现为「规则看着对但抓不到东西」。
+ *
+ * 判定条件有三条，缺一不可：方括号内能解析成索引、`]` 后面还有内容、前面的部分非空。
+ * `a[href]`、`[data-x="1"]` 这类属性选择器因为内容解析不出索引，会被安全跳过。
+ */
+function splitMidIndex(selector: string): { head: ParsedSelector; tail: string } | null {
+  const s = selector.trim();
+  for (let close = s.indexOf(']'); close >= 0; close = s.indexOf(']', close + 1)) {
+    if (close === s.length - 1) continue;
+    const open = s.lastIndexOf('[', close);
+    if (open <= 0) continue;
+    const parsed = parseIndexInner(s.slice(open + 1, close));
+    if (!parsed) continue;
+    const headStr = s.slice(0, open).trim();
+    const tail = s.slice(close + 1).trim();
+    if (!headStr || !tail) continue;
+    return {
+      head: {
+        ...parseSelectorBase(headStr),
+        explicitIndex: true,
+        indexMode: parsed.indexMode,
+        indexItems: parsed.indexItems,
+      },
+      tail,
+    };
+  }
+  return null;
+}
+
+/** 把一条规则解析成「选择器链」：普通规则长度为 1，带中间索引的会拆成多段 */
+function parseSelectorChain(selector: string): ParsedSelector[] {
+  const s = selector.trim();
+  const mid = splitMidIndex(s);
+  if (mid) return [mid.head, ...parseSelectorChain(mid.tail)];
+  return [parseSelectorWithIndex(s)];
+}
+
 /** 元素自身直接文本节点 */
 function ownText($: CheerioAPI, el: El): string {
   let text = '';
@@ -189,6 +250,33 @@ function collectMatches($: CheerioAPI, root: El, selector: ParsedSelector): AnyN
     matches = root.find(selector.cssSelector ?? '').toArray();
   }
   return applyIndices(matches, selector);
+}
+
+/**
+ * 按链式规则从「文档根」匹配：首段用 root 语义，后续每段在上一段命中的节点里继续找。
+ * 链只有一段时行为与 collectMatches 完全一致（中间索引是唯一会产生多段的情况）。
+ */
+function collectChainFromRoot($: CheerioAPI, root: El, chain: ParsedSelector[]): AnyNode[] {
+  let matches = collectMatches($, root, chain[0]);
+  for (const segment of chain.slice(1)) {
+    if (matches.length === 0) return [];
+    const next: AnyNode[] = [];
+    for (const node of matches) next.push(...collectMatchesFromElement($, $(node), segment));
+    matches = next;
+  }
+  return matches;
+}
+
+/** 同上，但从「某个元素」出发（列表项内的字段规则走这里） */
+function collectChainFromElement($: CheerioAPI, el: El, chain: ParsedSelector[]): AnyNode[] {
+  let matches = collectMatchesFromElement($, el, chain[0]);
+  for (const segment of chain.slice(1)) {
+    if (matches.length === 0) return [];
+    const next: AnyNode[] = [];
+    for (const node of matches) next.push(...collectMatchesFromElement($, $(node), segment));
+    matches = next;
+  }
+  return matches;
 }
 
 function applyIndices(matches: AnyNode[], selector: ParsedSelector): AnyNode[] {
@@ -327,11 +415,14 @@ export function selectTextList($: CheerioAPI, doc: El, rule: string): string[] {
     return currentTexts;
   }
 
-  const parts = rule.split('@');
+  // `-` 前缀：倒序取结果（对齐 legado），必须在按 @ 切分之前摘掉
+  const { rule: body, reverse } = splitReverse(rule);
+  const parts = body.split('@');
   if (parts.length === 0) return [];
 
   const firstPart = parts[0].trim();
-  const matches = collectMatches($, doc, parseSelectorWithIndex(firstPart));
+  const matched = collectChainFromRoot($, doc, parseSelectorChain(firstPart));
+  const matches = reverse ? [...matched].reverse() : matched;
   if (matches.length === 0) return [];
 
   const results: string[] = [];
@@ -354,9 +445,10 @@ export function selectText($: CheerioAPI, doc: El, rule: string): string | null 
 
 /** 列表规则：按 selector 选出元素集合（不含取值后缀，用于列表项） */
 export function selectElements($: CheerioAPI, doc: El, selector: string): El[] {
-  const parsed = parseSelectorWithIndex(selector);
-  const matches = collectMatches($, doc, parsed);
-  return matches.map((node) => $(node));
+  const { rule, reverse } = splitReverse(selector);
+  const matches = collectChainFromRoot($, doc, parseSelectorChain(rule));
+  const ordered = reverse ? [...matches].reverse() : matches;
+  return ordered.map((node) => $(node));
 }
 
 /** 元素级：在单个元素上用规则提取（含链式 @ 和取值后缀） */
@@ -376,10 +468,10 @@ export function selectTextFromElement($: CheerioAPI, el: El, rule: string): stri
       return null;
     }
 
-    const parsed = parseSelectorWithIndex(part);
+    const chain = parseSelectorChain(part);
     const nextMatches: AnyNode[] = [];
     for (const current of currentMatches) {
-      nextMatches.push(...collectMatchesFromElement($, $(current), parsed));
+      nextMatches.push(...collectChainFromElement($, $(current), chain));
     }
     if (nextMatches.length === 0) return null;
     currentMatches = nextMatches;

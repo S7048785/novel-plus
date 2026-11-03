@@ -97,6 +97,38 @@ describe('CSS 提取器', () => {
   });
 });
 
+describe('CSS 提取器 - 索引与倒序补充', () => {
+  const NESTED = `
+<ul class="list">
+  <li class="item"><h3><a href="/1.html">书一</a></h3></li>
+  <li class="item"><h3><a href="/2.html">书二</a></h3></li>
+  <li class="item"><h3><a href="/3.html">书三</a></h3></li>
+</ul>`;
+
+  it('中间索引后继续用后续选择器', () => {
+    const s = cheerio.load(NESTED);
+    expect(selectText(s, s('body'), '.item[1] a@text')).toBe('书二');
+  });
+
+  it('中间索引支持负数与排除', () => {
+    const s = cheerio.load(NESTED);
+    expect(selectText(s, s('body'), '.item[-1] a@text')).toBe('书三');
+    expect(selectTextList(s, s('body'), '.item[!1] a@text')).toEqual(['书一', '书三']);
+  });
+
+  it('属性选择器不被误判为索引', () => {
+    const s = cheerio.load('<div data-x="1"><a href="/1.html">A</a></div><div data-x="2"><a href="/2.html">B</a></div>');
+    expect(selectText(s, s('body'), 'div[data-x="2"] a@text')).toBe('B');
+    expect(selectTextList(s, s('body'), 'div[data-x] a@text')).toEqual(['A', 'B']);
+  });
+
+  it('- 前缀倒序取列表', () => {
+    const s = cheerio.load(NESTED);
+    expect(selectTextList(s, s('body'), '-.item a@text')).toEqual(['书三', '书二', '书一']);
+    expect(selectText(s, s('body'), '-.item a@text')).toBe('书三');
+  });
+});
+
 describe('JSONPath 提取器', () => {
   const JSON_TEXT = '{"data":{"bookName":"斗破","chapters":[{"name":"一"},{"name":"二"}]}}';
 
@@ -110,6 +142,10 @@ describe('JSONPath 提取器', () => {
 
   it('通配符', () => {
     expect(selectJsonPathList(JSON_TEXT, '$.data.chapters[*].name')).toEqual(['一', '二']);
+  });
+
+  it('递归下降 $.. 命中数组时展开为多条', () => {
+    expect(selectJsonPathList(JSON_TEXT, '$..chapters')).toEqual(['{"name":"一"}', '{"name":"二"}']);
   });
 });
 
