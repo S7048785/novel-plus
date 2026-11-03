@@ -29,6 +29,13 @@
       "when": 1793641820858,
       "tag": "0003_early_baron_zemo",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1793698406471,
+      "tag": "0004_safe_nicolaos",
+      "breakpoints": true
     }
   ]
 }

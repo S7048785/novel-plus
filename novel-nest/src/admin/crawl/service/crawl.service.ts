@@ -225,7 +225,6 @@ export class CrawlService {
         title: chapter.title,
         url: chapter.url,
         index: chapter.index,
-        isVip: chapter.isVip ?? false,
         content: content ?? '',
       });
       if (ok) savedCount++;
@@ -409,19 +408,13 @@ export class CrawlService {
     const isJson = this.isJsonContent(html);
     const records = isJson
       ? await extractListFromJson(listRule, { title: rule.chapterName, url: rule.chapterUrl }, html, tocUrl)
-      : await extractListFromHtml(
-          listRule,
-          { title: rule.chapterName, url: rule.chapterUrl, isVip: rule.isVip },
-          html,
-          tocUrl,
-        );
+      : await extractListFromHtml(listRule, { title: rule.chapterName, url: rule.chapterUrl }, html, tocUrl);
 
     const mapped = records
       .map((r, i) => ({
         title: r.title ?? `第${i + 1}章`,
         url: resolveUrl(tocUrl, r.url ?? ''),
         index: i,
-        isVip: r.isVip === '1' || r.isVip === 'true',
       }))
       .filter((c) => c.url);
 

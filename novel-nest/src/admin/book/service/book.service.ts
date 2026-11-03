@@ -93,7 +93,7 @@ export class BookService {
 
   /**
    * 删除书籍。
-   * book_chapter → book 的外键是 ON DELETE CASCADE，章节与正文会一并删除（不可恢复）。
+   * 章节与正文由 BookRepository 在同一事务里显式删除（外键级联已移除）。
    */
   async remove(id: number): Promise<{ id: number; deleted: number }> {
     const deleted = await this.repo.deleteById(id);

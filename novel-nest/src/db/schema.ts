@@ -80,19 +80,20 @@ export const book = mysqlTable(
 
 /**
  * 章节目录表
+ *
+ * 不再声明外键（book_id → book、以及 book_content.chapter_id → book_chapter 均已移除）。
+ * 级联删除改由应用层在事务里显式执行：删书前先删章节、删章节前先删正文。
+ * 理由与 book.source_id 相同：级联清理是业务行为，显式写出来比依赖隐式 ON DELETE CASCADE 更可控、
+ * 也更容易在代码里审查；同时避免 DB 外键约束在批量操作/测试清库时带来额外开销。
  */
 export const bookChapter = mysqlTable(
   'book_chapter',
   {
     id: int('id').autoincrement().primaryKey(),
-    bookId: int('book_id')
-      .notNull()
-      .references(() => book.id, { onDelete: 'cascade' }),
+    bookId: int('book_id').notNull(),
     title: varchar('title', { length: 512 }).notNull(),
     url: varchar('url', { length: 512 }).notNull(),
     index: int('index').notNull(),
-    isVip: boolean('is_vip').notNull().default(false),
-    isPay: boolean('is_pay').notNull().default(false),
     createdAt: datetime('created_at').notNull(),
     updatedAt: datetime('updated_at').notNull(),
   },
@@ -106,9 +107,7 @@ export const bookContent = mysqlTable(
   'book_content',
   {
     id: int('id').autoincrement().primaryKey(),
-    chapterId: int('chapter_id')
-      .notNull()
-      .references(() => bookChapter.id, { onDelete: 'cascade' }),
+    chapterId: int('chapter_id').notNull(),
     content: mediumtext('content'),
     createdAt: datetime('created_at').notNull(),
     updatedAt: datetime('updated_at').notNull(),

@@ -12,7 +12,6 @@ export interface ChapterData {
   title: string;
   url: string;
   index: number;
-  isVip: boolean;
   content: string;
 }
 
@@ -23,8 +22,6 @@ export interface ChapterSummary {
   title: string;
   url: string;
   index: number;
-  isVip: boolean;
-  isPay: boolean;
   /** 正文字数（CHAR_LENGTH），无正文为 0 */
   contentLength: number;
   createdAt: Date;
@@ -41,8 +38,6 @@ export interface ChapterCreateData {
   url: string;
   /** 缺省时自动追加到末尾（max(index)+1） */
   index?: number;
-  isVip?: boolean;
-  isPay?: boolean;
   content?: string | null;
 }
 
@@ -50,8 +45,6 @@ export interface ChapterPatch {
   title?: string;
   url?: string;
   index?: number;
-  isVip?: boolean;
-  isPay?: boolean;
   /** 不传 = 不动正文；传 null = 删除正文；传字符串 = 覆盖 */
   content?: string | null;
 }
@@ -63,8 +56,6 @@ const summarySelection = {
   title: bookChapter.title,
   url: bookChapter.url,
   index: bookChapter.index,
-  isVip: bookChapter.isVip,
-  isPay: bookChapter.isPay,
   // CHAR_LENGTH 在 MySQL 返回 BIGINT，显式 cast 成 SIGNED 让 mysql2 给 number 而不是字符串
   contentLength: sql<number>`cast(coalesce(char_length(${bookContent.content}), 0) as signed)`,
   createdAt: bookChapter.createdAt,
@@ -88,8 +79,6 @@ export class BookChapterRepository {
         title: chapter.title,
         url: chapter.url,
         index: chapter.index,
-        isVip: chapter.isVip,
-        isPay: false,
         createdAt: now,
         updatedAt: now,
       })
@@ -171,8 +160,6 @@ export class BookChapterRepository {
         title: data.title,
         url: data.url,
         index,
-        isVip: data.isVip ?? false,
-        isPay: data.isPay ?? false,
         createdAt: now,
         updatedAt: now,
       })
@@ -191,8 +178,6 @@ export class BookChapterRepository {
     if (patch.title !== undefined) set.title = patch.title;
     if (patch.url !== undefined) set.url = patch.url;
     if (patch.index !== undefined) set.index = patch.index;
-    if (patch.isVip !== undefined) set.isVip = patch.isVip;
-    if (patch.isPay !== undefined) set.isPay = patch.isPay;
 
     if (Object.keys(set).length > 1) {
       await this.db.update(bookChapter).set(set).where(eq(bookChapter.id, chapterId));
@@ -216,18 +201,24 @@ export class BookChapterRepository {
       .onDuplicateKeyUpdate({ set: { content, updatedAt: now } });
   }
 
-  /** 删除单章，返回受影响行数（正文由 book_content.chapter_id 外键级联删除） */
+  /** 删除单章，返回受影响行数。正文在同一事务里显式清理（不再依赖外键级联） */
   async deleteById(chapterId: number): Promise<number> {
-    const [result] = await this.db.delete(bookChapter).where(eq(bookChapter.id, chapterId));
-    return result?.affectedRows ?? 0;
+    return this.db.transaction(async (tx) => {
+      await tx.delete(bookContent).where(eq(bookContent.chapterId, chapterId));
+      const [result] = await tx.delete(bookChapter).where(eq(bookChapter.id, chapterId));
+      return result?.affectedRows ?? 0;
+    });
   }
 
-  /** 批量删除（限定在 bookId 内，避免跨书误删） */
+  /** 批量删除（限定在 bookId 内，避免跨书误删）。正文在同一事务里显式清理 */
   async deleteMany(bookId: number, chapterIds: number[]): Promise<number> {
     if (chapterIds.length === 0) return 0;
-    const [result] = await this.db
-      .delete(bookChapter)
-      .where(and(eq(bookChapter.bookId, bookId), inArray(bookChapter.id, chapterIds)));
-    return result?.affectedRows ?? 0;
+    return this.db.transaction(async (tx) => {
+      await tx.delete(bookContent).where(inArray(bookContent.chapterId, chapterIds));
+      const [result] = await tx
+        .delete(bookChapter)
+        .where(and(eq(bookChapter.bookId, bookId), inArray(bookChapter.id, chapterIds)));
+      return result?.affectedRows ?? 0;
+    });
   }
 }

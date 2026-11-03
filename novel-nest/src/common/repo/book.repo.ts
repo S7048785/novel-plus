@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { and, count, desc, eq, inArray, like, or } from 'drizzle-orm';
 import { DB, type Db } from '../../db/database.js';
-import { book, bookChapter, crawlSource, type BookRow, type NewBookRow } from '../../db/schema.js';
+import { book, bookChapter, bookContent, crawlSource, type BookRow, type NewBookRow } from '../../db/schema.js';
 
 /**
  * 书籍 Repository：负责 book 表的读写。
@@ -246,16 +246,35 @@ export class BookRepository {
     await this.db.update(book).set(set).where(eq(book.id, id));
   }
 
-  /** 删除单本，返回受影响行数（book_chapter/book_content 由外键 ON DELETE CASCADE 连带删除） */
+  /**
+   * 删除单本，返回受影响行数。
+   * 章节与正文在同一事务里显式删除（book_chapter/book_content 的外键已移除，级联由这里负责）。
+   */
   async deleteById(id: number): Promise<number> {
-    const [result] = await this.db.delete(book).where(eq(book.id, id));
-    return result?.affectedRows ?? 0;
+    return this.db.transaction(async (tx) => {
+      await tx.delete(bookContent).where(inArray(bookContent.chapterId, this.chapterIdSubquery(tx, id)));
+      await tx.delete(bookChapter).where(eq(bookChapter.bookId, id));
+      const [result] = await tx.delete(book).where(eq(book.id, id));
+      return result?.affectedRows ?? 0;
+    });
   }
 
-  /** 批量删除，返回受影响行数 */
+  /** 批量删除，返回受影响行数（ids 里不存在的会被忽略） */
   async deleteMany(ids: number[]): Promise<number> {
     if (ids.length === 0) return 0;
-    const [result] = await this.db.delete(book).where(inArray(book.id, ids));
-    return result?.affectedRows ?? 0;
+    return this.db.transaction(async (tx) => {
+      await tx.delete(bookContent).where(inArray(bookContent.chapterId, this.chapterIdSubquery(tx, ...ids)));
+      await tx.delete(bookChapter).where(inArray(bookChapter.bookId, ids));
+      const [result] = await tx.delete(book).where(inArray(book.id, ids));
+      return result?.affectedRows ?? 0;
+    });
+  }
+
+  /** 事务里查「这些书的全部章节 id」子查询，供级联删除 book_content 用 */
+  private chapterIdSubquery(tx: Pick<Db, 'select'>, ...bookIds: number[]) {
+    return tx
+      .select({ id: bookChapter.id })
+      .from(bookChapter)
+      .where(bookIds.length === 1 ? eq(bookChapter.bookId, bookIds[0]) : inArray(bookChapter.bookId, bookIds));
   }
 }

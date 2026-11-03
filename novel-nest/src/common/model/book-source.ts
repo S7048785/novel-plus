@@ -39,8 +39,6 @@ export interface TocRule {
   chapterUrl?: string;
   formatJs?: string;
   isVolume?: string;
-  isVip?: string;
-  isPay?: string;
   updateTime?: string;
   nextTocUrl?: string;
 }
@@ -121,6 +119,4 @@ export interface BookChapter {
   title: string;
   url: string;
   index: number;
-  isVip?: boolean;
-  isPay?: boolean;
 }

@@ -29,8 +29,6 @@ export const createChapterSchema = z.object({
   title: z.string().trim().min(1, '章节标题不能为空').max(512),
   url: z.string().trim().min(1, '章节地址不能为空').max(512),
   index: z.coerce.number().int().min(0).optional(),
-  isVip: z.boolean().optional(),
-  isPay: z.boolean().optional(),
   content: z.string().nullable().optional(),
 });
 
@@ -44,8 +42,6 @@ export const updateChapterSchema = z.object({
   title: z.string().trim().min(1, '章节标题不能为空').max(512).optional(),
   url: z.string().trim().min(1, '章节地址不能为空').max(512).optional(),
   index: z.coerce.number().int().min(0).optional(),
-  isVip: z.boolean().optional(),
-  isPay: z.boolean().optional(),
   content: z.string().nullable().optional(),
 });
 
