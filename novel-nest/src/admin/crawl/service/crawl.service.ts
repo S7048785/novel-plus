@@ -1,8 +1,10 @@
 import { BadGatewayException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import iconv from 'iconv-lite';
-import { HttpClient } from '../crawler/http-client.js';
+import { HttpClient, parseUrlOptions } from '../crawler/http-client.js';
 import { resolveUrl } from '../crawler/url.js';
 import { evalFieldOnDoc, extractListFromHtml, extractListFromJson, type EvalContext } from '../parser/rule-engine.js';
+import { evalJs } from '../parser/js.js';
+import { stripModePrefix } from '../parser/mode.js';
 import { CrawlSourceRepository } from '../../../common/repo/crawl-source.repo.js';
 import { BookRepository } from '../../../common/repo/book.repo.js';
 import { BookChapterRepository } from '../../../common/repo/book-chapter.repo.js';
@@ -77,11 +79,13 @@ export class CrawlService {
     if (!source.searchUrl) return { ok: false, list: [], reason: '书源未配置 searchUrl' };
     if (!source.ruleSearch?.bookList) return { ok: false, list: [], reason: '书源未配置 ruleSearch.bookList' };
 
-    const req = this.buildSearchRequest(source, key, page);
+    const req = await this.buildSearchRequest(source, key, page);
+    // 书源级 header 兜底，搜索 URL 里自带的 headers 覆盖它（后者更具体）
+    const headers = { ...this.sourceHeaders(source), ...req.headers };
     const html =
       req.method === 'POST'
-        ? await this.http.post(req.url, req.body, { charset: req.charset, headers: req.headers })
-        : await this.http.get(req.url, req.charset);
+        ? await this.http.post(req.url, req.body, { charset: req.charset, headers })
+        : await this.http.get(req.url, req.charset, headers);
     if (!html) return { ok: false, list: [], reason: `搜索请求失败：${req.method} ${req.url}` };
 
     const rule = source.ruleSearch;
@@ -119,7 +123,7 @@ export class CrawlService {
     if (!source) throw new NotFoundException(`没有匹配的书源，无法解析该书籍 URL：${bookUrl}`);
 
     const charset = source.charset ?? 'utf-8';
-    const html = await this.http.get(bookUrl, charset);
+    const html = await this.http.get(bookUrl, charset, this.sourceHeaders(source));
     if (!html) throw new BadGatewayException(`详情页抓取失败：${bookUrl}`);
 
     const info = await this.parseBookInfo(source, html, bookUrl);
@@ -185,7 +189,7 @@ export class CrawlService {
     const charset = source.charset ?? 'utf-8';
 
     // 1. 详情页
-    const detailHtml = await this.http.get(bookUrl, charset);
+    const detailHtml = await this.http.get(bookUrl, charset, this.sourceHeaders(source));
     if (!detailHtml) throw new Error('详情页抓取失败');
 
     const info = await this.parseBookInfo(source, detailHtml, bookUrl);
@@ -205,7 +209,7 @@ export class CrawlService {
 
     // 3. 目录页
     const tocUrl = info.tocUrl || bookUrl;
-    const tocHtml = await this.http.get(tocUrl, charset);
+    const tocHtml = await this.http.get(tocUrl, charset, this.sourceHeaders(source));
     if (!tocHtml) throw new Error('目录页抓取失败');
 
     const chapters = await this.parseChapterList(source, tocHtml, tocUrl);
@@ -242,24 +246,54 @@ export class CrawlService {
    * - {key} 占位替换为 URL 编码后的关键词（POST 时按 charset 编码）
    * - {page} 占位替换为页码
    * - method 缺省 GET；body 缺省空；charset 缺省 utf-8
+   *
+   * 另外支持 `@js:` / `<js>` 形式：脚本返回真正的 URL。
+   * 需要它的场景是「搜索地址会轮换」的站点——脚本先抓首页，从 `<form action>` 里读当前
+   * 搜索地址，再拼关键词。脚本内可用 `java.ajax`（已接上带 cookie/header 的 HttpClient）
+   * 与 `cookie.removeCookie`。
    */
-  private buildSearchRequest(
+  private async buildSearchRequest(
     source: BookSource,
     key: string,
     page: number,
-  ): { method: 'GET' | 'POST'; url: string; body: string; charset: string; headers: Record<string, string> } {
+  ): Promise<{ method: 'GET' | 'POST'; url: string; body: string; charset: string; headers: Record<string, string> }> {
     const template = source.searchUrl!;
+    const trimmed = template.trim();
+    const headers = this.sourceHeaders(source);
+    const sourceCharset = source.charset ?? 'utf-8';
+
+    let urlPart: string;
+    if (trimmed.startsWith('@js:') || trimmed.startsWith('js:') || trimmed.startsWith('<js>')) {
+      const script = stripModePrefix(trimmed);
+      urlPart = (
+        await evalJs(script, {
+          baseUrl: source.bookSourceUrl,
+          key,
+          page,
+          sourceKey: source.bookSourceUrl,
+          ajax: (spec) => {
+            const { url } = parseUrlOptions(spec);
+            return this.http
+              .get(resolveUrl(source.bookSourceUrl, url), sourceCharset, headers)
+              .then((html) => html ?? '');
+          },
+          clearCookies: (target) => this.http.clearCookies(target ? resolveUrl(source.bookSourceUrl, target) : undefined),
+        })
+      ).trim();
+    } else {
+      const encodedKey = encodeKey(key, sourceCharset);
+      urlPart = template.replace(/\{key\}/g, encodedKey).replace(/\{page\}/g, String(page));
+    }
 
     // 拆 url 与请求配置 JSON（`url,{...}` 形式，逗号后是合法 JSON 才拆）
-    let urlPart = template;
     let config: { method?: string; body?: string; headers?: Record<string, string>; charset?: string } = {};
-    const commaIdx = template.indexOf(',');
+    const commaIdx = urlPart.indexOf(',');
     if (commaIdx >= 0) {
-      const maybeJson = template.slice(commaIdx + 1).trim();
+      const maybeJson = urlPart.slice(commaIdx + 1).trim();
       if (maybeJson.startsWith('{')) {
         try {
           config = JSON.parse(maybeJson);
-          urlPart = template.slice(0, commaIdx);
+          urlPart = urlPart.slice(0, commaIdx);
         } catch {
           // 不是合法 JSON，当普通 URL（含逗号）
         }
@@ -267,24 +301,48 @@ export class CrawlService {
     }
 
     const method = (config.method ?? 'GET').toUpperCase() as 'GET' | 'POST';
-    const charset = config.charset ?? 'utf-8';
+    // 搜索请求的编码优先级：searchUrl 内联配置 > 书源 charset > utf-8
+    // （gbk 站点的 searchUrl 可能只写了 {key}，此时必须回落到书源级 charset，否则关键词编码错误）
+    const charset = config.charset ?? sourceCharset;
 
     // 关键词编码：POST 表单时用 charset 对应的编码（gbk 站点需 gbk 编码 key）
     const encodedKey = encodeKey(key, charset);
-
-    // URL 里的 {key}/{page} 占位替换
-    let url = urlPart.replace(/\{key\}/g, encodedKey).replace(/\{page\}/g, String(page));
 
     // body 里的 {key}/{page} 占位替换
     const body = (config.body ?? '').replace(/\{key\}/g, encodedKey).replace(/\{page\}/g, String(page));
 
     return {
       method,
-      url: resolveUrl(source.bookSourceUrl, url),
+      url: resolveUrl(source.bookSourceUrl, urlPart),
       body,
       charset,
-      headers: config.headers ?? {},
+      headers: { ...headers, ...config.headers },
     };
+  }
+
+  /**
+   * 解析书源 header（JSON 字符串）为请求头。
+   *
+   * 书源配置是人手填的：缺失、非法 JSON、非对象一律降级成「不带自定义头」，
+   * 不能因为一条坏配置让整次采集抛错。
+   */
+  private sourceHeaders(source: BookSource): Record<string, string> {
+    const raw = source.header;
+    if (!raw || !raw.trim()) return {};
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+      const headers: Record<string, string> = {};
+      for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+        // 只接受标量：对象/数组作为请求头会被序列化成 "[object Object]"，等于埋了个坏头
+        if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+          headers[key] = String(value);
+        }
+      }
+      return headers;
+    } catch {
+      return {};
+    }
   }
 
   private isJsonContent(html: string): boolean {
@@ -358,7 +416,7 @@ export class CrawlService {
           tocUrl,
         );
 
-    return records
+    const mapped = records
       .map((r, i) => ({
         title: r.title ?? `第${i + 1}章`,
         url: resolveUrl(tocUrl, r.url ?? ''),
@@ -366,6 +424,16 @@ export class CrawlService {
         isVip: r.isVip === '1' || r.isVip === 'true',
       }))
       .filter((c) => c.url);
+
+    /**
+     * 按 URL 去重，保留**最后一次**出现的位置。
+     *
+     * 很多站点的目录页是「最新章节 9 条（倒序）+ 完整目录（正序）」拼在一张列表里，
+     * 前 9 条与完整目录尾部重复。倒着扫一遍保留后者，就能得到「完整且正序」的目录；
+     * 顺扫保留前者会得到「最新 9 条在最前面、中间缺一段」的错序目录。
+     */
+    const deduped = dedupeChaptersByUrl(mapped);
+    return deduped.map((chapter, i) => ({ ...chapter, index: i }));
   }
 
   /**
@@ -378,6 +446,7 @@ export class CrawlService {
 
     const parts: string[] = [];
     let currentUrl = chapterUrl;
+    const headers = this.sourceHeaders(source);
     const MAX_PAGES = 20; // 防死循环：最多抓 20 页
     const visited = new Set<string>();
 
@@ -385,7 +454,7 @@ export class CrawlService {
       if (visited.has(currentUrl)) break; // 防环
       visited.add(currentUrl);
 
-      const html = await this.http.get(currentUrl, charset);
+      const html = await this.http.get(currentUrl, charset, headers);
       if (!html) break;
 
       let processed = html;
@@ -411,6 +480,24 @@ export class CrawlService {
 
     return parts.length > 0 ? parts.join('\n') : null;
   }
+}
+
+/**
+ * 按 URL 去重，保留最后一次出现的位置。
+ *
+ * 目录页常见形态是「最新章节 N 条（倒序）+ 完整目录（正序）」，前半段与后半段尾部重复。
+ * 从后往前扫、保留后出现的，正好剩下「完整且正序」的那份；反过来扫会得到错序目录。
+ */
+export function dedupeChaptersByUrl<T extends { url: string }>(chapters: T[]): T[] {
+  const seen = new Set<string>();
+  const kept: T[] = [];
+  for (let i = chapters.length - 1; i >= 0; i -= 1) {
+    const chapter = chapters[i];
+    if (seen.has(chapter.url)) continue;
+    seen.add(chapter.url);
+    kept.unshift(chapter);
+  }
+  return kept;
 }
 
 /**

@@ -1,0 +1,39 @@
+{
+  "bookSourceName": "顶点小说 xsbook",
+  "bookSourceGroup": "顶点小说",
+  "bookSourceUrl": "http://www.xsbook.org",
+  "bookSourceType": 0,
+  "charset": "utf-8",
+  "enabled": true,
+  "enabledExplore": false,
+  "bookSourceComment": "反爬：首次请求 403 并下发 cookie，带 cookie 再来一次 200。已在 HttpClient 里统一处理（cookie 罐 + 403 自动重发），规则里不需要再写 retry。搜索 action 会轮换，故 searchUrl 用 @js 先从首页 form 里读当前 action。目录页是「最新 9 条倒序 + 完整目录正序」，靠 CrawlService 的按 URL 去重（保留后者）得到正序完整目录。站点对高频请求敏感，批量采集建议放慢间隔。",
+  "header": "{\"User-Agent\": \"Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36\", \"Accept-Language\": \"zh-CN,zh;q=0.9\"}",
+  "searchUrl": "@js:var base=\"http://www.xsbook.org\";try{cookie.removeCookie(base);}catch(e){}java.ajax(base+\"/\").then(function(h){var m=String(h).match(/<form[^>]*action=\"([^\"]+)\"/);var act=m?m[1]:\"/search6e.html\";return base+act+\"?searchkey=\"+encodeURIComponent(key);});",
+  "ruleSearch": {
+    "bookList": ".item",
+    "name": "dl > dt > a@text",
+    "author": "div.btm > a@text",
+    "bookUrl": "dl > dt > a@href",
+    "coverUrl": "img@data-original",
+    "intro": "dl > dd@text",
+    "wordCount": "em@text"
+  },
+  "ruleBookInfo": {
+    "name": "[property=\"og:novel:book_name\"]@content",
+    "author": "[property=\"og:novel:author\"]@content",
+    "intro": "[property=\"og:description\"]@content||id.intro@text",
+    "kind": "[property=\"og:novel:category\"]@content",
+    "lastChapter": "[property=\"og:novel:lastest_chapter_name\"]@content",
+    "coverUrl": "[property=\"og:image\"]@content"
+  },
+  "ruleToc": {
+    "chapterList": "#list dl > a",
+    "chapterName": "dd@text",
+    "chapterUrl": "@href"
+  },
+  "ruleContent": {
+    "content": "id.booktxt@html",
+    "nextContentUrl": "#next_url@href",
+    "replaceRegex": "##本站所有小说均由根据搜索引擎转码而来[\\s\\S]*|请记住本书首发域名[\\s\\S]*|顶点小说.*?www\\.xsbook\\.org##"
+  }
+}
