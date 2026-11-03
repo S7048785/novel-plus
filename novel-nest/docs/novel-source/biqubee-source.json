@@ -1,0 +1,36 @@
+{
+  "bookSourceName": "笔趣阁 biqubee",
+  "bookSourceGroup": "笔趣阁",
+  "bookSourceUrl": "https://www.biqubee.com",
+  "bookSourceType": 0,
+  "charset": "utf-8",
+  "enabled": true,
+  "enabledExplore": false,
+  "bookSourceComment": "无反爬、无 cookie、单页正文，规则简单。搜索 /search.html?bi={key}，结果在 class=search-list 表格（分类/书名/最新章节/作者四列）。目录在详情页内分页（?page=N，每页约 100 章），目录页含「最新章节」倒序区 + 「正文卷」正序区，靠 CrawlService 的按 URL 去重得到正序目录。正文容器 id=htmlContent，标题 h1。",
+  "header": "{\"User-Agent\": \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36\"}",
+  "searchUrl": "/search.html?bi={key}",
+  "ruleSearch": {
+    "bookList": ".search-list tr",
+    "name": "td:nth-child(2) a@text",
+    "bookUrl": "td:nth-child(2) a@href",
+    "kind": "td:nth-child(1)@text",
+    "author": "td:nth-child(4)@text"
+  },
+  "ruleBookInfo": {
+    "name": "[property=\"og:novel:book_name\"]@content",
+    "author": "[property=\"og:novel:author\"]@content",
+    "intro": ".intro@text",
+    "kind": "[property=\"og:novel:category\"]@content",
+    "coverUrl": "[property=\"og:image\"]@content"
+  },
+  "ruleToc": {
+    "chapterList": "dl#chpbi dt:nth-of-type(2) ~ dd||dl#chpbi dd",
+    "chapterName": "a@text",
+    "chapterUrl": "a@href",
+    "nextTocUrl": "text.下一页@href"
+  },
+  "ruleContent": {
+    "content": "#htmlContent@html",
+    "title": "h1@text"
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "bookSourceName": "悠久小说网 youjiuxs",
+  "bookSourceGroup": "悠久小说网",
+  "bookSourceUrl": "https://www.youjiuxs.com",
+  "bookSourceType": 0,
+  "charset": "utf-8",
+  "enabled": true,
+  "enabledExplore": true,
+  "bookSourceComment": "本站无搜索功能：搜索框点击跳广告站（rrssk.com），?s= 返回的页面与首页完全一致（md5 相同），各类 search 路径均 404。发现书籍只能靠 8 个分类页（/list-10/ 等，每类固定 55 本、无分页）。详情/目录/正文均正常：详情走 og:novel:*（含 latest_chapter_name），简介用 .introTxt（og:description 是截断的）；目录在详情页内分两段（最新章节倒序 + 完整正序），靠按 URL 去重取正序全量；正文 #content，章节内可多页（/book/{id}-{n}-2.html）。注意：本源的搜索不可用，需引擎实现 explore（分类浏览）后才能真正发现书，exploreUrl/ruleExplore 已按格式配好备用。",
+  "header": "{\"User-Agent\": \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36\"}",
+  "exploreUrl": "历史小说::https://www.youjiuxs.com/list-10/\n游戏小说::https://www.youjiuxs.com/list-11/\n科幻小说::https://www.youjiuxs.com/list-13/\n诸天无限::https://www.youjiuxs.com/list-14/\n古代言情::https://www.youjiuxs.com/list-16/\n仙侠奇缘::https://www.youjiuxs.com/list-17/\n玄幻言情::https://www.youjiuxs.com/list-20/\n悬疑推理::https://www.youjiuxs.com/list-21/",
+  "ruleExplore": {
+    "bookList": ".picList li, .main li",
+    "name": ".name a@text",
+    "bookUrl": ".name a@href",
+    "author": ".author@text",
+    "kind": ".cate@text",
+    "intro": ".intro@text",
+    "coverUrl": ".pic img@src"
+  },
+  "ruleBookInfo": {
+    "name": "[property=\"og:novel:book_name\"]@content",
+    "author": "[property=\"og:novel:author\"]@content",
+    "intro": ".introTxt@text||[property=\"og:description\"]@content",
+    "kind": "[property=\"og:novel:category\"]@content",
+    "lastChapter": "[property=\"og:novel:latest_chapter_name\"]@content",
+    "coverUrl": "[property=\"og:image\"]@content"
+  },
+  "ruleToc": {
+    "chapterList": "div.chapterList div.list li a",
+    "chapterName": "@text",
+    "chapterUrl": "@href"
+  },
+  "ruleContent": {
+    "content": "id.content@html",
+    "nextContentUrl": "text.下一页@href"
+  }
+}
