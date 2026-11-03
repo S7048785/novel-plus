@@ -1,4 +1,4 @@
-import { getQuickJS, Scope, type QuickJSContext, type QuickJSHandle } from 'quickjs-emscripten';
+import { getQuickJS, Scope, type QuickJSContext, type QuickJSHandle, type QuickJSRuntime } from 'quickjs-emscripten';
 import { createHash, randomUUID } from 'node:crypto';
 
 /**
@@ -18,7 +18,17 @@ export interface JsEvalOptions {
   key?: string;
   page?: number;
   sourceKey?: string;
+  /**
+   * 网络桥：规则里的 java.ajax / java.get / java.post 走这里。
+   *
+   * 不传时退回裸 fetch（不带书源 header、不带 cookie），只适合纯公开接口；
+   * 抓取站点的规则必须由调用方注入带 cookie/header 的实现，否则过不了反爬。
+   */
+  ajax?: (spec: string) => Promise<string>;
+  /** 清空 cookie（对应 legado 的 cookie.removeCookie，用于换新会话） */
+  clearCookies?: (url?: string) => void;
 }
+
 
 let quickJSModule: Awaited<ReturnType<typeof getQuickJS>> | null = null;
 
@@ -29,14 +39,70 @@ async function getModule() {
   return quickJSModule;
 }
 
+/** 等 JS 里的异步（java.ajax）落定的超时上限 */
+const JS_ASYNC_TIMEOUT_MS = 20_000;
+
+/**
+ * 等待 VM 内的 Promise 落定。
+ *
+ * 为什么需要：java.ajax 是宿主侧异步（fetch），脚本里 `String(java.ajax(url))` 拿到的是 Promise。
+ * evalCode 只跑同步部分就返回，必须靠 executePendingJobs 把宿主回调推进 VM 才能拿到结果。
+ * 不做这件事有两个后果：规则拿到 "[object Promise]"，以及**上下文销毁后异步回调仍在写句柄**——
+ * QuickJS 会直接 assert 崩溃整个进程（实测过）。
+ */
+function settlePromise(ctx: QuickJSContext, rt: QuickJSRuntime, handle: QuickJSHandle): Promise<QuickJSHandle | null> {
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (value: QuickJSHandle | null) => {
+      if (done) return;
+      done = true;
+      resolve(value);
+    };
+
+    ctx.resolvePromise(handle).then(
+      (res) => {
+        if (res.error) {
+          res.error.dispose();
+          finish(null);
+        } else {
+          finish(res.value ?? null);
+        }
+      },
+      () => finish(null),
+    );
+
+    const deadline = Date.now() + JS_ASYNC_TIMEOUT_MS;
+    const tick = () => {
+      if (done) return;
+      if (Date.now() > deadline) {
+        finish(null);
+        return;
+      }
+      try {
+        rt.executePendingJobs();
+      } catch {
+        finish(null);
+        return;
+      }
+      setTimeout(tick, 5);
+    };
+    tick();
+  });
+}
+
 /** 执行 JS 规则，返回结果字符串 */
 export async function evalJs(script: string, opts: JsEvalOptions = {}): Promise<string> {
   const QuickJS = await getModule();
   const rt = QuickJS.newRuntime();
   const ctx = rt.newContext();
+  const scope = new Scope();
+  /** 上下文是否已销毁：晚到的异步回调不能再碰 ctx，否则 use-after-free */
+  let disposed = false;
+  /** 还在飞的宿主异步调用（java.ajax）。销毁前必须等它们全部落地，否则 QuickJS 会 assert 崩进程 */
+  const asyncState = { pending: 0 };
 
   try {
-    return await Scope.withScope((scope) => {
+    {
       const input = opts.input ?? '';
       const baseUrl = opts.baseUrl ?? '';
 
@@ -58,7 +124,16 @@ export async function evalJs(script: string, opts: JsEvalOptions = {}): Promise<
 
       // cookie 占位
       const cookieObj = scope.manage(ctx.newObject());
-      ctx.setProp(cookieObj, 'removeCookie', scope.manage(ctx.newFunction('removeCookie', () => ctx.newString(''))));
+      ctx.setProp(
+        cookieObj,
+        'removeCookie',
+        scope.manage(
+          ctx.newFunction('removeCookie', (u) => {
+            opts.clearCookies?.(u ? ctx.getString(u) : undefined);
+            return ctx.newString('');
+          }),
+        ),
+      );
       ctx.setProp(g, 'cookie', cookieObj);
 
       // cache（内存 KV）
@@ -81,7 +156,7 @@ export async function evalJs(script: string, opts: JsEvalOptions = {}): Promise<
       ctx.setProp(g, 'cache', cacheObj);
 
       // java 对象
-      ctx.setProp(g, 'java', buildJavaObject(ctx, scope));
+      ctx.setProp(g, 'java', buildJavaObject(ctx, scope, opts, () => disposed, asyncState));
 
       // 全局函数
       ctx.setProp(g, 'kv_get', scope.manage(ctx.newFunction('kv_get', (k) => ctx.newString(jsKv.get(ctx.getString(k)) ?? ''))));
@@ -129,11 +204,34 @@ export async function evalJs(script: string, opts: JsEvalOptions = {}): Promise<
         result.error.dispose();
         return '';
       }
-      const dumped = ctx.dump(result.value);
-      result.value.dispose();
-      return stringify(dumped);
-    });
+
+      // 先把还在飞的 java.ajax 全部推完（脚本可能是同步写法，拿不到 Promise 的值，但请求必须落地）
+      const deadline = Date.now() + JS_ASYNC_TIMEOUT_MS;
+      while (asyncState.pending > 0 && Date.now() < deadline) {
+        rt.executePendingJobs();
+        if (asyncState.pending === 0) break;
+        await new Promise((resolve) => setTimeout(resolve, 5));
+      }
+      rt.executePendingJobs();
+
+      let value = result.value;
+      try {
+        const state = ctx.getPromiseState(value);
+        // notAPromise 说明结果是普通值，不用等
+        if (!('notAPromise' in state && state.notAPromise)) {
+          const settled = await settlePromise(ctx, rt, value);
+          if (!settled) return '';
+          value.dispose();
+          value = settled;
+        }
+        return stringify(ctx.dump(value));
+      } finally {
+        value.dispose();
+      }
+    }
   } finally {
+    disposed = true;
+    scope.dispose();
     ctx.dispose();
     rt.dispose();
   }
@@ -152,7 +250,13 @@ function stringify(v: unknown): string {
   return String(v);
 }
 
-function buildJavaObject(ctx: QuickJSContext, scope: Scope): QuickJSHandle {
+function buildJavaObject(
+  ctx: QuickJSContext,
+  scope: Scope,
+  opts: JsEvalOptions,
+  isDisposed: () => boolean,
+  asyncState: { pending: number },
+): QuickJSHandle {
   const java = scope.manage(ctx.newObject());
 
   const setFn = (name: string, impl: (args: QuickJSHandle[]) => QuickJSHandle) =>
@@ -168,22 +272,31 @@ function buildJavaObject(ctx: QuickJSContext, scope: Scope): QuickJSHandle {
   // 无参数字函数
   const noArgNumFn = (name: string, impl: () => number) => setFn(name, () => ctx.newNumber(impl()));
 
-  // 异步网络函数（返回 Promise 句柄）
+  // 异步网络函数（返回 Promise 句柄）。结果晚于上下文销毁到达时直接丢弃：
+  // 那时再 ctx.newString 会 use-after-free，QuickJS 会把整个进程 assert 掉。
   const asyncFn = (name: string, impl: (args: QuickJSHandle[]) => Promise<string>) =>
     setFn(name, (args) => {
       const deferred = ctx.newPromise();
+      asyncState.pending += 1;
+      const settle = (value: string) => {
+        if (isDisposed()) return;
+        deferred.resolve(ctx.newString(value));
+      };
       impl(args)
-        .then((value) => deferred.resolve(ctx.newString(value)))
-        .catch(() => deferred.resolve(ctx.newString('')));
+        .then(settle)
+        .catch(() => settle(''))
+        .finally(() => {
+          asyncState.pending -= 1;
+        });
       return deferred.handle;
     });
 
-  asyncFn('ajax', (args) => javaAjax(ctx.getString(args[0])).catch(() => ''));
+  asyncFn('ajax', (args) => runAjax(opts, ctx.getString(args[0])));
   strFn('md5Encode', (s) => md5(s));
   setFn('timeFormat', (args) => ctx.newString(timeFormat(ctx.getNumber(args[0]))));
   noArgStrFn('androidId', () => deviceId);
   noArgStrFn('deviceID', () => deviceId);
-  asyncFn('get', (args) => simpleRequest('GET', ctx.getString(args[0])).catch(() => ''));
+  asyncFn('get', (args) => runAjax(opts, ctx.getString(args[0])));
   asyncFn('post', (args) => simpleRequest('POST', ctx.getString(args[0]), ctx.getString(args[1])).catch(() => ''));
   asyncFn('put', (args) => simpleRequest('PUT', ctx.getString(args[0]), ctx.getString(args[1])).catch(() => ''));
   strFn('base64Encode', (s) => Buffer.from(s).toString('base64'));
@@ -231,6 +344,12 @@ const deviceId = randomUUID().replace(/-/g, '');
 
 /** 内存 KV（对齐 reader-rust 的 JS_KV 静态缓存） */
 const jsKv = new Map<string, string>();
+
+/** java.ajax / java.get 的统一实现：有网络桥走桥（带 cookie/header），否则退回裸 fetch */
+function runAjax(opts: JsEvalOptions, spec: string): Promise<string> {
+  const call = opts.ajax ? opts.ajax(spec) : javaAjax(spec);
+  return call.catch(() => '');
+}
 
 async function simpleRequest(method: string, url: string, body?: string): Promise<string> {
   const res = await fetch(url, {
