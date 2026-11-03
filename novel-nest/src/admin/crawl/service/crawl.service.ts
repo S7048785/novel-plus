@@ -212,7 +212,7 @@ export class CrawlService {
     const tocHtml = await this.http.get(tocUrl, charset, this.sourceHeaders(source));
     if (!tocHtml) throw new Error('目录页抓取失败');
 
-    const chapters = await this.parseChapterList(source, tocHtml, tocUrl);
+    const chapters = await this.parseChapterList(source, tocHtml, tocUrl, charset);
     if (chapters.length === 0) throw new Error('章节目录解析失败');
 
     const targetChapters = maxChapters ? chapters.slice(0, maxChapters) : chapters;
@@ -400,17 +400,49 @@ export class CrawlService {
     };
   }
 
-  private async parseChapterList(source: BookSource, html: string, tocUrl: string) {
+  /**
+   * 解析章节目录，支持多页（ruleToc.nextTocUrl 指向「下一页」链接）。
+   *
+   * 流程：抓当前目录页 → 提取章节 → 若有 nextTocUrl 则解析出下一页地址继续，直到没有下一页。
+   * 多页合并后统一按 URL 去重，避免「最新章节区」与「正文卷区」的重复条目。
+   */
+  private async parseChapterList(source: BookSource, html: string, tocUrl: string, charset = 'utf-8') {
     const rule = source.ruleToc ?? {};
     const listRule = rule.chapterList ?? '';
     if (!listRule) return [];
 
-    const isJson = this.isJsonContent(html);
-    const records = isJson
-      ? await extractListFromJson(listRule, { title: rule.chapterName, url: rule.chapterUrl }, html, tocUrl)
-      : await extractListFromHtml(listRule, { title: rule.chapterName, url: rule.chapterUrl }, html, tocUrl);
+    const allRecords: Record<string, string>[] = [];
+    let currentUrl = tocUrl;
+    let currentHtml = html;
+    const headers = this.sourceHeaders(source);
+    const MAX_PAGES = 50; // 防死循环：目录最多 50 页（5 万章，远超任何现实书籍）
+    const visited = new Set<string>();
 
-    const mapped = records
+    for (let page = 0; page < MAX_PAGES; page++) {
+      if (visited.has(currentUrl)) break;
+      visited.add(currentUrl);
+
+      const isJson = this.isJsonContent(currentHtml);
+      const records = isJson
+        ? await extractListFromJson(listRule, { title: rule.chapterName, url: rule.chapterUrl }, currentHtml, currentUrl)
+        : await extractListFromHtml(listRule, { title: rule.chapterName, url: rule.chapterUrl }, currentHtml, currentUrl);
+      allRecords.push(...records);
+
+      // 解析下一页
+      if (!rule.nextTocUrl) break;
+      const ctx: EvalContext = { baseUrl: currentUrl, variables: new Map() };
+      const nextRaw = await evalFieldOnDoc(rule.nextTocUrl, currentHtml, ctx);
+      if (!nextRaw) break;
+      const nextUrl = resolveUrl(currentUrl, nextRaw);
+      if (!nextUrl || nextUrl === currentUrl) break;
+
+      const nextHtml = await this.http.get(nextUrl, charset, headers);
+      if (!nextHtml) break;
+      currentUrl = nextUrl;
+      currentHtml = nextHtml;
+    }
+
+    const mapped = allRecords
       .map((r, i) => ({
         title: r.title ?? `第${i + 1}章`,
         url: resolveUrl(tocUrl, r.url ?? ''),
