@@ -1,0 +1,63 @@
+@import 'tailwindcss' source(none);
+
+@source not '../../src/**/*.test.ts';
+@source not '../../src/**/*.d.ts';
+@source not inline('{filter,transition}');
+
+@source '../../src/**/*.vue';
+@source '../../src/**/*.ts';
+@source '../../src/**/*.tsx';
+
+@plugin '@iconify/tailwind4' {
+  prefixes: ph;
+  scale: 1.2;
+}
+
+@plugin 'tailwindcss-color-scale';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --default-transition-duration: 300ms;
+}
+
+@theme inline {
+  --color-primary: var(--primary-color);
+  --color-naive-border: var(--border-color);
+  --color-naive-card: var(--card-color);
+  --color-naive-modal: var(--modal-color);
+  --color-naive-text3: var(--text-color-3);
+  --color-naive-button2-hover: var(--button-color-2-hover);
+  --radius-naive: var(--border-radius);
+  --radius-naive-sm: var(--border-radius-small);
+}
+
+@layer base {
+  body {
+    @apply overflow-hidden tracking-wide;
+  }
+}
+
+@layer iconify-vue {
+  svg.iconify {
+    @apply bg-transparent;
+  }
+}
+
+@layer naive-ui {
+  .n-notification-container .n-notification .n-notification__avatar {
+    @apply top-2.5!;
+  }
+
+  .n-notification-container .n-notification .n-notification__avatar .n-base-icon {
+    @apply size-5.5!;
+  }
+  .n-notification-container .n-notification.n-notification--show-avatar .n-notification-main {
+    margin-left: 34px !important;
+    width: calc(100% - 34px) !important;
+  }
+
+  .n-notification-container .n-notification .n-notification-main .n-notification-main-footer {
+    @apply mt-1.5!;
+  }
+}

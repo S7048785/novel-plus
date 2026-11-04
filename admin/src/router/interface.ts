@@ -1,0 +1,68 @@
+import type { UserRole } from '@/api'
+import type {
+  MenuDividerOption as MenuDividerOptionRaw,
+  MenuOption as MenuOptionRaw,
+  MenuGroupOption as MenuGroupOptionRaw,
+} from 'naive-ui'
+import type { VNodeChild } from 'vue'
+import type { RouteRecordRaw } from 'vue-router'
+
+type NoIndex<T> = {
+  [K in keyof T as string extends K ? never : number extends K ? never : K]: T[K]
+}
+
+type ReplaceKeys<T, R extends Partial<Record<keyof T, unknown>>> = T extends unknown
+  ? {
+      [K in keyof T]: K extends keyof R ? R[K] : T[K]
+    } & Omit<R, keyof T>
+  : never
+
+type CustomRouteRecordRaw = ReplaceKeys<
+  RouteRecordRaw,
+  {
+    component: string
+  }
+>
+
+type RouteOption = Omit<CustomRouteRecordRaw, 'children'> & {
+  type?: never
+}
+
+export type MenuOption = ReplaceKeys<
+  NoIndex<MenuOptionRaw>,
+  {
+    icon?: string | (() => VNodeChild)
+    label?: string | (() => VNodeChild)
+    children?: MenuMixedOptions[]
+  }
+> &
+  RouteOption
+
+type MenuGroup = NoIndex<
+  ReplaceKeys<
+    MenuGroupOptionRaw,
+    {
+      children?: Array<MenuOption | MenuDivider>
+    }
+  >
+>
+
+type MenuDivider = NoIndex<MenuDividerOptionRaw>
+
+export type MenuMixedOptions = MenuOption | MenuGroup | MenuDivider
+
+export interface CustomRouteMeta {
+  icon?: string
+  title?: string
+  componentName?: string
+  pinned?: boolean
+  showTab?: boolean
+  enableMultiTab?: boolean
+  keepAlive?: boolean
+  /**
+   * 允许看到该菜单 / 进入该路由的身份。
+   * 不写 = 任何能进后台的身份都能看；写了则是「或」关系。
+   * 注意：这只是界面上的收口，真正的权限判断在后端 —— 藏起来不等于拦住。
+   */
+  roles?: UserRole[]
+}

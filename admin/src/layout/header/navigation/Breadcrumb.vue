@@ -1,0 +1,172 @@
+<script setup lang="tsx">
+import { Icon } from '@iconify/vue'
+import { isString } from 'es-toolkit'
+import { isEmpty } from 'es-toolkit/compat'
+import { NDropdown } from 'naive-ui'
+import { computed, defineComponent } from 'vue'
+
+import router from '@/router'
+import { toRefsPreferencesStore } from '@/stores'
+
+import type { DropdownProps } from 'naive-ui'
+import type { PropType, VNodeChild } from 'vue'
+import type { RouteRecordNameGeneric, RouteRecordRaw } from 'vue-router'
+
+const { breadcrumb } = toRefsPreferencesStore()
+
+const routeBreadcrumbList = computed(() => {
+  return router.currentRoute.value.matched.filter((item) => item.name !== 'layout')
+})
+
+const currentRouteName = computed(() => {
+  return router.currentRoute.value.name as string
+})
+
+const onDropdownSelected: DropdownProps['onSelect'] = (key) => {
+  router.push({ name: key })
+}
+
+function isCurrentRoute(name: RouteRecordNameGeneric) {
+  return name === currentRouteName.value
+}
+
+function resolveDropdownOptions(route?: RouteRecordRaw[]): DropdownProps['options'] {
+  if (!route) return []
+
+  return route.map((item) => ({
+    label: item.meta?.title || item.meta?.label,
+    key: (item.name as string) || item.path,
+    icon: () => renderIcon(item.meta?.icon, 'ml-1.5'),
+    children:
+      Array.isArray(item.children) && !isEmpty(item.children)
+        ? resolveDropdownOptions(item.children)
+        : undefined,
+  }))
+}
+
+function renderIcon(icon?: string | (() => VNodeChild), iconClasses?: string) {
+  if (!icon) return null
+
+  if (isString(icon)) {
+    return icon.includes(':') ? (
+      <Icon
+        icon={icon}
+        class={`size-5 ${iconClasses}`}
+      />
+    ) : (
+      <span class={`${icon} ${iconClasses} size-5`} />
+    )
+  }
+
+  return null
+}
+
+const BreadcrumbNode = defineComponent({
+  name: 'BreadcrumbNode',
+  props: {
+    meta: {
+      type: Object as PropType<RouteRecordRaw['meta']>,
+      required: true,
+    },
+  },
+  setup(props) {
+    return () => (
+      <div class='flex shrink-0 items-center gap-x-1.5 rounded px-1.5 py-1'>
+        {renderIcon(props.meta?.icon)}
+        <span>{props.meta?.title}</span>
+      </div>
+    )
+  },
+})
+
+const BreadcrumbItem = defineComponent({
+  name: 'BreadcrumbItem',
+  props: {
+    meta: {
+      type: Object as PropType<RouteRecordRaw['meta']>,
+    },
+    children: {
+      type: Array as PropType<RouteRecordRaw['children']>,
+    },
+    name: {
+      type: String as PropType<RouteRecordRaw['name']>,
+    },
+  },
+  inheritAttrs: false,
+  setup(props) {
+    return () => (
+      <div class='flex min-w-0 items-center'>
+        {isEmpty(props.children) ? (
+          <BreadcrumbNode meta={props.meta} />
+        ) : (
+          <NDropdown
+            options={resolveDropdownOptions(props.children)}
+            disabled={isEmpty(props.children)}
+            value={currentRouteName.value}
+            onSelect={onDropdownSelected}
+          >
+            <BreadcrumbNode
+              meta={props.meta}
+              class='cursor-pointer transition-[background-color,color] not-hover:text-naive-text3 hover:bg-naive-button2-hover'
+            />
+          </NDropdown>
+        )}
+        {!isCurrentRoute(props.name) && (
+          <svg
+            xmlns='http://www.w3.org/2000/svg'
+            width='14'
+            class='text-naive-text3'
+            viewBox='0 0 20 20'
+          >
+            <path
+              fill='currentColor'
+              d='M12.658 2.026a.5.5 0 0 1 .317.632l-5 15a.5.5 0 1 1-.95-.316l5-15a.5.5 0 0 1 .633-.316'
+            />
+          </svg>
+        )}
+      </div>
+    )
+  },
+})
+</script>
+<template>
+  <TransitionGroup
+    v-if="breadcrumb.enableTransition"
+    :duration="300"
+    tag="ul"
+    class="flex"
+    type="transition"
+    enter-active-class="transition-[grid-template-columns]"
+    leave-active-class="transition-[grid-template-columns]"
+    enter-from-class="grid-cols-[0fr]"
+    leave-to-class="grid-cols-[0fr]"
+    enter-to-class="grid-cols-[1fr]"
+    leave-from-class="grid-cols-[1fr]"
+  >
+    <li
+      v-for="{ path, ...rest } in routeBreadcrumbList"
+      :key="path"
+      class="grid overflow-hidden"
+    >
+      <BreadcrumbItem
+        v-bind="rest"
+        class="min-w-0"
+      />
+    </li>
+  </TransitionGroup>
+  <ul
+    v-else
+    class="flex"
+  >
+    <li
+      v-for="{ path, ...rest } in routeBreadcrumbList"
+      :key="path"
+      class="grid overflow-hidden"
+    >
+      <BreadcrumbItem
+        v-bind="rest"
+        class="min-w-0"
+      />
+    </li>
+  </ul>
+</template>
