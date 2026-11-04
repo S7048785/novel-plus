@@ -75,7 +75,7 @@ describe('用户管理页', () => {
     await button!.trigger('click')
     await flushPromises()
 
-    expect(document.body.querySelectorAll('.n-modal')).toHaveLength(1)
+    expect(document.body.querySelectorAll('.n-drawer')).toHaveLength(1)
     expect(document.body.textContent).toContain('昵称')
     expect(document.body.textContent).toContain('密码')
     // 身份勾选项也在弹窗里：读者固定、作家/管理员可勾

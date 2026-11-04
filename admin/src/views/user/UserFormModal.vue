@@ -5,10 +5,11 @@ import {
   NCheckbox,
   NCheckboxGroup,
   NConfigProvider,
+  NDrawer,
+  NDrawerContent,
   NForm,
   NFormItem,
   NInput,
-  NModal,
   NSpin,
   useMessage,
 } from 'naive-ui'
@@ -22,12 +23,14 @@ import type { AdminUser, UserRole } from '@/api'
 import type { FormInst, FormRules } from 'naive-ui'
 
 /**
- * 新增 / 编辑用户弹窗。
+ * 新增 / 编辑用户抽屉（右侧滑出）。
  *
- * 用声明式 NModal 而不是 useModal() + modal.create({ content })：
+ * 用声明式 NDrawer 而不是 useModal()/useDrawer() 这类命令式 API：
  * 后者的 content 是「返回 vnode 的函数」，naive-ui 会在渲染函数之外调用它，
  * Vue 3.5 会告警「Slot "default" invoked outside of the render function」，
- * 并且弹窗的显隐被藏在 provider 的闭包里，开关时机不好控制。
+ * 并且弹层的显隐被藏在 provider 的闭包里，开关时机不好控制。
+ * 表单类内容用抽屉而非居中弹窗：抽屉高度天然固定、表单在内容区内部滚动，
+ * 不会出现「长表单把弹窗撑到和视口一样高、靠滚动页面来看全」的问题。
  *
  * 编辑时直接用列表里已有的行数据回填，不额外发一次详情请求：
  * 列表返回的字段就是详情返回的全部字段，多打一次接口只是在制造加载态。
@@ -179,15 +182,17 @@ async function handleSubmitClick() {
 
 <template>
   <NConfigProvider :theme-overrides="overlayThemeOverrides">
-    <NModal
+    <NDrawer
       :show="show"
-      preset="card"
-      :title="isEdit ? '编辑用户' : '新增用户'"
-      :style="{ width: '520px' }"
-      :mask-closable="false"
+      placement="right"
+      :width="520"
       @update:show="handleClose"
     >
-      <NSpin :show="submitting">
+      <NDrawerContent
+        :title="isEdit ? '编辑用户' : '新增用户'"
+        closable
+      >
+        <NSpin :show="submitting">
         <NForm
           ref="formRef"
           :model="form"
@@ -281,7 +286,9 @@ async function handleSubmitClick() {
             </div>
           </NFormItem>
         </NForm>
+      </NSpin>
 
+      <template #footer>
         <div class="flex justify-end gap-x-4">
           <NButton
             secondary
@@ -310,7 +317,8 @@ async function handleSubmitClick() {
             确定
           </NButton>
         </div>
-      </NSpin>
-    </NModal>
+      </template>
+      </NDrawerContent>
+    </NDrawer>
   </NConfigProvider>
 </template>

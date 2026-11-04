@@ -88,14 +88,14 @@ export const useUserStore = defineStore('userStore', () => {
     }
   }
 
-  // 菜单按身份裁剪后再解析：作家看不到系统管理，管理员看到全部
+  // 菜单按身份裁剪后再解析：非管理员看不到管理菜单，管理员看到全部
   const visibleMenu = computed(() => filterMenuByRoles(menu, roles.value))
   const userMenu = computed(() => resolveMenu(visibleMenu.value))
   /**
    * 路由注册用**完整**菜单，不用裁剪后的。
    *
    * 这样「看不到」与「进不去」是两件事：菜单里不显示（filterMenuByRoles），
-   * 但路由存在，手输 /system/user 会撞上路由守卫的 meta.roles 校验 → 落到 403，
+   * 但路由存在，手输 /user 会撞上路由守卫的 meta.roles 校验 → 落到 403，
    * 而不是因为路由未注册变成 404（那会让人以为功能没了，而不是没权限）。
    */
   const userRoute = computed(() => resolveRoute(menu))

@@ -5,7 +5,8 @@ import type { MenuMixedOptions } from '@/router/interface'
  *
  * meta.roles 决定哪些身份能看到该项（不写 = 任何能进后台的身份都能看）。
  * 后台只允许管理员登录，所以这里的 roles 目前只是「将来作家端上线」的提前量：
- * 现有菜单项里只有系统管理标了 admin，其余留空即可。
+ * 现在 书籍管理 与 用户管理 都标了 admin（后台只允许管理员登录，标与不标结果一样，
+ * 但显式标出来以后接作家端时不会漏）。
  *
  * 注意这只是界面收口，后端每个 controller 上都有对应的 @Roles，藏菜单不等于有权限。
  */
@@ -53,28 +54,28 @@ export const menu: MenuMixedOptions[] = [
     ],
   },
   {
-    path: 'system',
-    name: 'system',
-    label: '系统管理',
-    icon: 'ph:gear-six',
-    redirect: 'system/user',
+    path: 'book',
+    name: 'bookList',
+    icon: 'ph:books',
+    label: '书籍管理',
     meta: {
+      componentName: 'BookList',
+      title: '书籍管理',
       roles: ['admin'],
     },
-    children: [
-      {
-        path: 'user',
-        name: 'systemUser',
-        icon: 'ph:users',
-        label: '用户管理',
-        meta: {
-          componentName: 'SystemUser',
-          title: '用户管理',
-          roles: ['admin'],
-        },
-        component: 'system/user/index',
-      },
-    ],
+    component: 'book/index',
+  },
+  {
+    path: 'user',
+    name: 'userList',
+    icon: 'ph:users',
+    label: '用户管理',
+    meta: {
+      componentName: 'UserList',
+      title: '用户管理',
+      roles: ['admin'],
+    },
+    component: 'user/index',
   },
   {
     path: 'about',
