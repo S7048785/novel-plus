@@ -1,0 +1,48 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1793615749229,
+      "tag": "0000_normal_bullseye",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1793632785367,
+      "tag": "0001_book_author_nullable_and_source_url_unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1793634584170,
+      "tag": "0002_book_source_fk_removed",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1793641820858,
+      "tag": "0003_early_baron_zemo",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1793698406471,
+      "tag": "0004_safe_nicolaos",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1793808372200,
+      "tag": "0005_user_roles_and_book_owner",
+      "breakpoints": true
+    }
+  ]
+}
