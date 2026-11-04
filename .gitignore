@@ -1,8 +1,10 @@
 # 上游 Java 项目（独立克隆，自带 .git 与 origin 远端，不纳入本仓库）
 /novel-plus/
 
-# 工作区工具数据
+# 工作区工具数据：会话数据、技能包与技能锁文件都是本地工具资产，与仓库无关
 /.workbuddy/
+/.agents/
+skills-lock.json
 
 # OS
 .DS_Store
