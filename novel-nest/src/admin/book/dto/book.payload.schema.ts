@@ -14,11 +14,9 @@ const metadataFields = {
   author: z.string().trim().max(255).nullable().optional(),
   coverUrl: z.string().trim().max(512).nullable().optional(),
   intro: z.string().max(65535).nullable().optional(),
-  kind: z.string().trim().max(255).nullable().optional(),
   wordCount: z.string().trim().max(64).nullable().optional(),
   latestChapterTitle: z.string().trim().max(255).nullable().optional(),
   totalChapterNum: z.coerce.number().int().min(0).nullable().optional(),
-  updateTime: z.string().trim().max(64).nullable().optional(),
 };
 
 /** 新增书籍（手动录入用；采集写入不走这里）。bookUrl/sourceId 可空（手动导入的书无源站地址/书源） */

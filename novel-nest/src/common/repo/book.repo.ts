@@ -20,10 +20,8 @@ export interface BookUpsertData {
   coverUrl?: string;
   tocUrl?: string;
   intro?: string;
-  kind?: string;
   wordCount?: string;
   latestChapterTitle?: string;
-  updateTime?: string | null;
   totalChapterNum?: number | null;
 }
 
@@ -38,13 +36,11 @@ export interface BookSummary {
   sourceId: number | null;
   /** 书源名（book.source_id 关联 crawl_source；书源被删时可为 null） */
   sourceName: string | null;
-  kind: string | null;
   wordCount: string | null;
   latestChapterTitle: string | null;
   totalChapterNum: number | null;
   tocUrl: string | null;
   intro: string | null;
-  updateTime: string | null;
   /** book_chapter 里实际落库的章节数 */
   chapterCount: number;
   createdAt: Date;
@@ -57,7 +53,6 @@ export interface ListBookFilter {
   /** 同时匹配书名与作者 */
   keyword?: string;
   sourceId?: number;
-  kind?: string;
 }
 
 /** 后台管理可编辑的元数据（含 null 表示清空） */
@@ -66,11 +61,9 @@ export interface BookMetadataPatch {
   author?: string | null;
   coverUrl?: string | null;
   intro?: string | null;
-  kind?: string | null;
   wordCount?: string | null;
   latestChapterTitle?: string | null;
   totalChapterNum?: number | null;
-  updateTime?: string | null;
 }
 
 /** 列表/详情的公共字段选择 */
@@ -82,13 +75,11 @@ const summarySelection = {
   bookUrl: book.bookUrl,
   sourceId: book.sourceId,
   sourceName: crawlSource.sourceName,
-  kind: book.kind,
   wordCount: book.wordCount,
   latestChapterTitle: book.latestChapterTitle,
   totalChapterNum: book.totalChapterNum,
   tocUrl: book.tocUrl,
   intro: book.intro,
-  updateTime: book.updateTime,
   createdAt: book.createdAt,
   updatedAt: book.updatedAt,
 };
@@ -134,10 +125,8 @@ export class BookRepository {
         coverUrl: data.coverUrl,
         tocUrl: data.tocUrl,
         intro: data.intro,
-        kind: data.kind,
         wordCount: data.wordCount,
         latestChapterTitle: data.latestChapterTitle,
-        updateTime: data.updateTime ?? null,
         totalChapterNum: data.totalChapterNum ?? null,
         createdAt: now,
         updatedAt: now,
@@ -154,7 +143,6 @@ export class BookRepository {
     if (data.coverUrl !== undefined) set.coverUrl = data.coverUrl;
     if (data.tocUrl !== undefined) set.tocUrl = data.tocUrl;
     if (data.intro !== undefined) set.intro = data.intro;
-    if (data.kind !== undefined) set.kind = data.kind;
     if (data.wordCount !== undefined) set.wordCount = data.wordCount;
     if (data.latestChapterTitle !== undefined) set.latestChapterTitle = data.latestChapterTitle;
     await this.db.update(book).set(set).where(eq(book.id, id));
@@ -177,7 +165,6 @@ export class BookRepository {
       conditions.push(or(like(book.name, kw), like(book.author, kw)));
     }
     if (filter.sourceId !== undefined) conditions.push(eq(book.sourceId, filter.sourceId));
-    if (filter.kind) conditions.push(eq(book.kind, filter.kind));
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 
     const [totalRow] = await this.db.select({ value: count() }).from(book).where(where);
@@ -239,11 +226,9 @@ export class BookRepository {
     if (patch.author !== undefined) set.author = patch.author;
     if (patch.coverUrl !== undefined) set.coverUrl = patch.coverUrl;
     if (patch.intro !== undefined) set.intro = patch.intro;
-    if (patch.kind !== undefined) set.kind = patch.kind;
     if (patch.wordCount !== undefined) set.wordCount = patch.wordCount;
     if (patch.latestChapterTitle !== undefined) set.latestChapterTitle = patch.latestChapterTitle;
     if (patch.totalChapterNum !== undefined) set.totalChapterNum = patch.totalChapterNum;
-    if (patch.updateTime !== undefined) set.updateTime = patch.updateTime;
 
     await this.db.update(book).set(set).where(eq(book.id, id));
   }

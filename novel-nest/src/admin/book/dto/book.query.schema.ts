@@ -12,7 +12,6 @@ export const listBookQuerySchema = z.object({
   /** 同时匹配书名与作者 */
   keyword: z.string().trim().min(1).optional(),
   sourceId: z.coerce.number().int().positive().optional(),
-  kind: z.string().trim().min(1).max(255).optional(),
 });
 
 export type ListBookQuery = z.infer<typeof listBookQuerySchema>;

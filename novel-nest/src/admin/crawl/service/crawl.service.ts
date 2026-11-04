@@ -24,7 +24,6 @@ export interface SearchResult {
   bookUrl: string;
   coverUrl?: string;
   intro?: string;
-  kind?: string;
   wordCount?: string;
 }
 
@@ -46,7 +45,6 @@ export interface BookDetail {
   author: string | null;
   coverUrl: string | null;
   intro: string | null;
-  kind: string | null;
   wordCount: string | null;
   lastChapter: string | null;
   /** 目录页 URL：书源未配 ruleBookInfo.tocUrl 时回落到详情页 URL，故不会为 null */
@@ -104,7 +102,6 @@ export class CrawlService {
         bookUrl: resolveUrl(source.bookSourceUrl, r.bookUrl ?? ''),
         coverUrl: r.coverUrl ? resolveUrl(source.bookSourceUrl, r.coverUrl) : undefined,
         intro: r.intro,
-        kind: r.kind,
         wordCount: r.wordCount,
       }))
       .filter((r) => r.name && r.bookUrl);
@@ -139,7 +136,6 @@ export class CrawlService {
       author: info.author ?? null,
       coverUrl: info.coverUrl ?? null,
       intro: info.intro ?? null,
-      kind: info.kind ?? null,
       wordCount: info.wordCount ?? null,
       lastChapter: info.latestChapterTitle ?? null,
       // 与 crawlBook 的取目录逻辑保持一致：书源没配提示 tocUrl 时，详情页本身就是目录页
@@ -369,9 +365,7 @@ export class CrawlService {
       bookUrl: rule.bookUrl,
       coverUrl: rule.coverUrl,
       intro: rule.intro,
-      kind: rule.kind,
       lastChapter: rule.lastChapter,
-      updateTime: rule.updateTime,
       wordCount: rule.wordCount,
     };
   }
@@ -388,7 +382,6 @@ export class CrawlService {
     // 作者缺失存 null（对应 DB 可空列），不再回落成空串——空串和 NULL 混用会让「有没有作者」判断失真
     const author = (await evalFieldOnDoc(rule.author, html, ctx)) || null;
     const intro = (await evalFieldOnDoc(rule.intro, html, ctx)) ?? undefined;
-    const kind = (await evalFieldOnDoc(rule.kind, html, ctx)) ?? undefined;
     const lastChapter = (await evalFieldOnDoc(rule.lastChapter, html, ctx)) ?? undefined;
     const wordCount = (await evalFieldOnDoc(rule.wordCount, html, ctx)) ?? undefined;
     const coverUrlRaw = (await evalFieldOnDoc(rule.coverUrl, html, ctx)) ?? undefined;
@@ -398,7 +391,6 @@ export class CrawlService {
       name,
       author,
       intro,
-      kind,
       latestChapterTitle: lastChapter,
       wordCount,
       coverUrl: coverUrlRaw ? resolveUrl(bookUrl, coverUrlRaw) : undefined,

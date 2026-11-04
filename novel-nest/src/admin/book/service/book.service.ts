@@ -63,10 +63,8 @@ export class BookService {
       coverUrl: input.coverUrl ?? undefined,
       tocUrl: input.tocUrl ?? undefined,
       intro: input.intro ?? undefined,
-      kind: input.kind ?? undefined,
       wordCount: input.wordCount ?? undefined,
       latestChapterTitle: input.latestChapterTitle ?? undefined,
-      updateTime: input.updateTime ?? null,
       totalChapterNum: input.totalChapterNum ?? null,
     });
     return { id };
@@ -80,11 +78,9 @@ export class BookService {
       author: input.author ?? null,
       coverUrl: input.coverUrl ?? null,
       intro: input.intro ?? null,
-      kind: input.kind ?? null,
       wordCount: input.wordCount ?? null,
       latestChapterTitle: input.latestChapterTitle ?? null,
       totalChapterNum: input.totalChapterNum ?? null,
-      updateTime: input.updateTime ?? null,
     });
     return { id };
   }
