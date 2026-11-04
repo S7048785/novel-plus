@@ -3,6 +3,7 @@ import iconv from 'iconv-lite';
 import { HttpClient, parseUrlOptions } from '../crawler/http-client.js';
 import { resolveUrl } from '../crawler/url.js';
 import { evalFieldOnDoc, extractListFromHtml, extractListFromJson, type EvalContext } from '../parser/rule-engine.js';
+import { htmlToMarkdown } from '../parser/content-cleaner.js';
 import { evalJs } from '../parser/js.js';
 import { stripModePrefix } from '../parser/mode.js';
 import { CrawlSourceRepository } from '../../../common/repo/crawl-source.repo.js';
@@ -465,7 +466,7 @@ export class CrawlService {
    * 抓取单章正文，支持多页拼接（nextContentUrl）。
    * 流程：抓当前页 → 提取正文 → 若有 nextContentUrl 则抓下一页拼接，直到无下一页或达到上限。
    */
-  private async parseChapterContent(source: BookSource, chapterUrl: string, charset = 'utf-8'): Promise<string | null> {
+  private async parseChapterContent(source: BookSource, chapterUrl: string, chapterTitle = '', charset = 'utf-8'): Promise<string | null> {
     const rule = source.ruleContent ?? {};
     const { applyLegadoRegex } = await import('../parser/regex.js');
 
@@ -503,8 +504,30 @@ export class CrawlService {
       currentUrl = nextUrl;
     }
 
-    return parts.length > 0 ? parts.join('\n') : null;
+    // 入库前统一清洗成 Markdown（一段一行、段间空行）。
+    // 多页正文先按 \n 拼起来再整体清洗，保证跨页的段落边界也能正确归一。
+    const markdown = parts.length > 0 ? htmlToMarkdown(parts.join('\n')) : null;
+    // 兜底：纯文本路径无法识别标题标签，若清洗后首段与章节标题重复则剥掉。
+    // （HTML 路径的标题由 content-cleaner 丢弃 <h1>~<h6> 标签处理，这里再挡一道。）
+    return stripLeadingTitle(markdown, chapterTitle);
   }
+}
+
+/**
+ * 若正文首段与章节标题一致（忽略首尾空白），剥掉该首段。
+ * 章节标题已单独存 book_chapter.title，正文里不应重复出现。
+ */
+function stripLeadingTitle(markdown: string | null, title: string): string | null {
+  if (!markdown || !title) return markdown;
+  const normalizedTitle = title.trim();
+  if (!normalizedTitle) return markdown;
+  const firstSep = markdown.indexOf('\n\n');
+  const firstPara = firstSep === -1 ? markdown : markdown.slice(0, firstSep);
+  if (firstPara.trim() === normalizedTitle) {
+    const rest = firstSep === -1 ? '' : markdown.slice(firstSep + 2);
+    return rest.trim() || null;
+  }
+  return markdown;
 }
 
 /**

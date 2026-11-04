@@ -32,6 +32,15 @@
 - biquga：完整目录页是软 404（返回另一本书），只能采前 100 章 —— 放弃
 - youjiuxs：站点没有搜索功能（搜索框跳广告站），只能靠 8 个分类页；详情/目录/正文已验证可用，整本采集 66 章 25.9 万字通过
 
+## 2026-11-04
+
+正文格式统一为 Markdown。
+
+- 新增 `content-cleaner.ts`：`htmlToMarkdown` 统一清洗函数，HTML 片段/纯文本都能转成「一段一行、段间空行」的 Markdown 段落
+- 挂在采集路径 `CrawlService.parseChapterContent` 返回处，多页正文拼接后整体清洗
+- 只对采集路径生效，后台手动编辑章节不强制转换；存量 HTML 正文未迁移
+- 决策背景与完整契约归档于 `docs/content-format.md`
+
 ## 未提交 / 待办
 
 - explore（分类浏览）仍未实现，youjiuxs 目前只能按已知 URL 采集；bqquge 的 exploreUrl 也在等这个能力
