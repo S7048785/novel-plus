@@ -8,6 +8,7 @@
   "type": "module",
   "scripts": {
     "build": "nest build",
+    "type-check": "tsc --noEmit -p tsconfig.build.json",
     "deploy": "nest deploy",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
@@ -49,6 +50,8 @@
     "@nestjs/mau": "^0.2.6",
     "@nestjs/schematics": "^12.0.0",
     "@nestjs/testing": "^12.0.1",
+    "@swc/cli": "^0.8.2",
+    "@swc/core": "^1.16.21",
     "@types/express": "^5.0.0",
     "@types/node": "^24.0.0",
     "@types/supertest": "^7.0.0",

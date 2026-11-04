@@ -1,5 +1,5 @@
-# compiled output
-/dist
+# compiled output（/dist* 连带覆盖临时改名产物，如 dist.old-cleanup、dist.tsc-baseline）
+/dist*
 /node_modules
 /build
 
