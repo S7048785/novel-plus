@@ -218,10 +218,14 @@ export class CrawlService {
 
     const targetChapters = maxChapters ? chapters.slice(0, maxChapters) : chapters;
 
-    // 4. 逐章抓正文落库
+    // 4. 逐章抓正文落库（增量：跳过已入库的章节，只插入源站新出现的章节）
+    // 判断依据是章节 url（与目录去重一致）：同一本书内 url 已存在即视为已采集，
+    // 源站更新后再次采集只补新增章节，不重复插入旧章节。
+    const existingUrls = existing ? await this.chapterRepo.findExistingUrls(bookId) : new Set<string>();
     let savedCount = 0;
     for (const chapter of targetChapters) {
-      const content = await this.parseChapterContent(source, chapter.url, charset);
+      if (existingUrls.has(chapter.url)) continue;
+      const content = await this.parseChapterContent(source, chapter.url, chapter.title, charset);
       const ok = await this.chapterRepo.insertChapter(bookId, {
         title: chapter.title,
         url: chapter.url,

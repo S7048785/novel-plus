@@ -149,6 +149,19 @@ export class BookChapterRepository {
     return rows[0]?.id ?? null;
   }
 
+  /**
+   * 该书已存在的章节 url 集合（去重后的 Set，剔除 null），用于采集增量判断：
+   * 源站目录里 url 已在此集合中的章节视为「已入库」，跳过不再重复插入。
+   * 一次性查全量比逐章 findIdByUrl 少 N 次查询，采集几百章时差异明显。
+   */
+  async findExistingUrls(bookId: number): Promise<Set<string>> {
+    const rows = await this.db
+      .select({ url: bookChapter.url })
+      .from(bookChapter)
+      .where(eq(bookChapter.bookId, bookId));
+    return new Set(rows.map((r) => r.url).filter((u): u is string => !!u));
+  }
+
   async create(bookId: number, data: ChapterCreateData): Promise<number> {
     const now = new Date();
     const index = data.index ?? (await this.maxIndex(bookId)) + 1;
