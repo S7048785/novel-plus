@@ -67,6 +67,7 @@ const list = await extractListFromHtml('.item', { name: 'h3 a@text', bookUrl: 'h
 5. **正文分页**：长章节拆成 `-2`/`-3` 多页，需配 `nextContentUrl` 抓取拼接；最后一页的"下一页"会变成"下一章"，用 `text.下一页@href` 精确匹配"下一页"文本天然终止。
 6. **作者前缀**：作者字段常带"作者："前缀，用 `##作者[：:]\s*` 正则去掉。
 7. **`>` 子选择器**：规则引擎已支持标准 CSS（`div.ll > div.item`），但注意 legado 的 `class.xxx yyy` 多 class 写法与标准 CSS 的差异，优先写标准 CSS 选择器。
+8. **正文标题混入（`@html` 陷阱）**：用 `@html`/`@all` 取正文时，正文容器（如 `.con`、`#content`）常把章节标题 `<h1>第x章 xxx</h1>` 也包在内，导致标题混进正文第一段。但**无需在规则里处理**——采集层 `content-cleaner.ts` 的 `htmlToMarkdown` 会在清洗时丢弃 `<h1>~<h6>` 标题标签（标题已单独存 `book_chapter.title`），并在纯文本路径做首段==标题的兜底剥离。写 `ruleContent.content` 时照常写 `.con@html` 即可，不要为了去标题额外加 `replaceRegex` 去匹配标题文本（不同站点标题格式各异，规则侧匹配不稳，交给采集层统一处理更通用）。
 
 ## 规则字段速查
 

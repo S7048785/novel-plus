@@ -50,6 +50,8 @@ content 是合法 JSON               → JSONPath（自动检测）
 | `@href` / 任意属性名 | 取属性 |
 | `@attr[href]` | 属性兼容写法 |
 
+> **正文取值与清洗的关系**：`ruleContent.content` 用 `@html` 时，正文容器里的章节标题（`<h1>~<h6>`）也会被一起取回，但采集层 `content-cleaner.ts` 会在入库前统一清洗成 Markdown 段落，并**丢弃标题标签**（标题已单独存 `book_chapter.title`）。因此写正文规则时不需要为去标题额外加 `replaceRegex`，交给采集层统一处理即可。同理，正文里的 `<p>`、`<br>` 等标签也会在清洗时归一成「一段一行、段间空行」的 Markdown，规则侧无需手动剥标签。
+
 ### 链式与二次解析
 
 - `.a@h3@a@href`：`@` 链式向下选择
