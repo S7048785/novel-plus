@@ -41,7 +41,7 @@ export class BookChapterService {
   async create(bookId: number, input: CreateChapterInput): Promise<{ id: number }> {
     await this.assertBook(bookId);
 
-    const duplicated = await this.chapterRepo.findIdByUrl(bookId, input.url);
+    const duplicated = await this.chapterRepo.findIdByUrl(bookId, input.url ?? null);
     if (duplicated) {
       throw new ConflictException(`该章节地址已存在（chapterId=${duplicated}）`);
     }

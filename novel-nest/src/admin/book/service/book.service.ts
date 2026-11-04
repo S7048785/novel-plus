@@ -39,22 +39,27 @@ export class BookService {
    * 手动新增书籍。
    *
    * book.source_id 的外键已被移除，数据库不会拦「指向不存在的书源」，
-   * 所以这里必须自己校验书源存在——否则会落一条 source_id 悬空的书。
+   * 所以这里必须自己校验书源存在——但仅当 sourceId 非空时（手动导入的书可能没有书源）。
+   * 重复校验依赖 (source_id, book_url)，两者任一为空则跳过（无法作为唯一标识）。
    */
   async create(input: CreateBookInput): Promise<{ id: number }> {
-    const source = await this.sourceRepo.findById(input.sourceId);
-    if (!source) throw new BadRequestException(`书源 ${input.sourceId} 不存在`);
+    if (input.sourceId != null) {
+      const source = await this.sourceRepo.findById(input.sourceId);
+      if (!source) throw new BadRequestException(`书源 ${input.sourceId} 不存在`);
+    }
 
-    const existed = await this.repo.findBySourceUrl(input.sourceId, input.bookUrl);
-    if (existed) {
-      throw new ConflictException(`该书籍已存在（id=${existed.id}，${existed.name}）`);
+    if (input.sourceId != null && input.bookUrl != null) {
+      const existed = await this.repo.findBySourceUrl(input.sourceId, input.bookUrl);
+      if (existed) {
+        throw new ConflictException(`该书籍已存在（id=${existed.id}，${existed.name}）`);
+      }
     }
 
     const id = await this.repo.insert({
       name: input.name,
       author: input.author ?? null,
-      bookUrl: input.bookUrl,
-      sourceId: input.sourceId,
+      bookUrl: input.bookUrl ?? null,
+      sourceId: input.sourceId ?? null,
       coverUrl: input.coverUrl ?? undefined,
       tocUrl: input.tocUrl ?? undefined,
       intro: input.intro ?? undefined,

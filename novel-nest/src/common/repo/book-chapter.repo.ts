@@ -20,7 +20,8 @@ export interface ChapterSummary {
   id: number;
   bookId: number;
   title: string;
-  url: string;
+  /** 源站章节地址；手动导入的章节为 null */
+  url: string | null;
   index: number;
   /** 正文字数（CHAR_LENGTH），无正文为 0 */
   contentLength: number;
@@ -35,7 +36,8 @@ export interface ChapterDetail extends ChapterSummary {
 
 export interface ChapterCreateData {
   title: string;
-  url: string;
+  /** 源站章节地址；手动导入的章节可不传（存 null） */
+  url?: string | null;
   /** 缺省时自动追加到末尾（max(index)+1） */
   index?: number;
   content?: string | null;
@@ -43,7 +45,8 @@ export interface ChapterCreateData {
 
 export interface ChapterPatch {
   title?: string;
-  url?: string;
+  /** 传 null = 清空源站地址 */
+  url?: string | null;
   index?: number;
   /** 不传 = 不动正文；传 null = 删除正文；传字符串 = 覆盖 */
   content?: string | null;
@@ -139,8 +142,12 @@ export class BookChapterRepository {
     return Number(row?.value ?? -1);
   }
 
-  /** 同一本书里 url 相同的章节 id（没有则 null），用于新增/改地址时的重复校验 */
-  async findIdByUrl(bookId: number, url: string): Promise<number | null> {
+  /**
+   * 同一本书里 url 相同的章节 id（没有则 null），用于新增/改地址时的重复校验。
+   * url 为 null（手动导入、无源站地址）时不参与校验，直接返回 null。
+   */
+  async findIdByUrl(bookId: number, url: string | null): Promise<number | null> {
+    if (!url) return null;
     const rows = await this.db
       .select({ id: bookChapter.id })
       .from(bookChapter)
@@ -171,7 +178,7 @@ export class BookChapterRepository {
       .values({
         bookId,
         title: data.title,
-        url: data.url,
+        url: data.url ?? null,
         index,
         createdAt: now,
         updatedAt: now,

@@ -13,8 +13,10 @@ export interface BookUpsertData {
    * 与 DB 列 author varchar NULL 的语义保持一致。
    */
   author?: string | null;
-  bookUrl: string;
-  sourceId: number;
+  /** 源站书籍地址；手动导入的书为 null */
+  bookUrl?: string | null;
+  /** 书源 id；手动导入的书为 null（不属于任何书源） */
+  sourceId?: number | null;
   coverUrl?: string;
   tocUrl?: string;
   intro?: string;
@@ -31,9 +33,9 @@ export interface BookSummary {
   name: string;
   author: string | null;
   coverUrl: string | null;
-  /** 书籍原始页面地址（后台需要能跳回书源站点） */
-  bookUrl: string;
-  sourceId: number;
+  /** 书籍原始页面地址（后台需要能跳回书源站点）；手动导入的书为 null */
+  bookUrl: string | null;
+  sourceId: number | null;
   /** 书源名（book.source_id 关联 crawl_source；书源被删时可为 null） */
   sourceName: string | null;
   kind: string | null;
@@ -127,8 +129,8 @@ export class BookRepository {
       .values({
         name: data.name,
         author: data.author ?? null,
-        bookUrl: data.bookUrl,
-        sourceId: data.sourceId,
+        bookUrl: data.bookUrl ?? null,
+        sourceId: data.sourceId ?? null,
         coverUrl: data.coverUrl,
         tocUrl: data.tocUrl,
         intro: data.intro,

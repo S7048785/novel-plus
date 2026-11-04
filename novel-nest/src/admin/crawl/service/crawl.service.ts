@@ -156,7 +156,8 @@ export class CrawlService {
    */
   private async resolveSourceByUrl(bookUrl: string): Promise<BookSource | null> {
     const known = await this.bookRepo.findByBookUrl(bookUrl);
-    if (known) {
+    // known.sourceId 可空（手动导入的书没有书源），仅当有 sourceId 时才反查书源
+    if (known && known.sourceId != null) {
       const source = await this.crawlSourceRepo.findById(known.sourceId);
       if (source) return source;
     }

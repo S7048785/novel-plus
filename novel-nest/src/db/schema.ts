@@ -57,13 +57,14 @@ export type CrawlSourceJson = BookSourceConfig;
 export const book = mysqlTable(
   'book',
   {
-    id: int('id').autoincrement().primaryKey(),
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
     name: varchar('name', { length: 255 }).notNull(),
     author: varchar('author', { length: 255 }),
-    bookUrl: varchar('book_url', { length: 512 }).notNull(),
+    // bookUrl / sourceId 可空：采集的书有源站地址与书源，手动导入的书两者都没有。
+    bookUrl: varchar('book_url', { length: 512 }),
     // 不声明外键：book.source_id → crawl_source 的外键已从库中移除，
     // 目的是删书源时保留已采集的书籍（删除源只删配置，不动内容）
-    sourceId: int('source_id').notNull(),
+    sourceId: int('source_id'),
     coverUrl: varchar('cover_url', { length: 512 }),
     tocUrl: varchar('toc_url', { length: 512 }),
     intro: text('intro'),
@@ -89,10 +90,11 @@ export const book = mysqlTable(
 export const bookChapter = mysqlTable(
   'book_chapter',
   {
-    id: int('id').autoincrement().primaryKey(),
-    bookId: int('book_id').notNull(),
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    bookId: int('book_id', { unsigned: true }).notNull(),
     title: varchar('title', { length: 512 }).notNull(),
-    url: varchar('url', { length: 512 }).notNull(),
+    // url 可空：采集的章节有源站地址，手动导入的章节没有；null 表示「无源站地址」。
+    url: varchar('url', { length: 512 }),
     index: int('index').notNull(),
     createdAt: datetime('created_at').notNull(),
     updatedAt: datetime('updated_at').notNull(),
@@ -106,8 +108,8 @@ export const bookChapter = mysqlTable(
 export const bookContent = mysqlTable(
   'book_content',
   {
-    id: int('id').autoincrement().primaryKey(),
-    chapterId: int('chapter_id').notNull(),
+    id: int('id', { unsigned: true }).autoincrement().primaryKey(),
+    chapterId: int('chapter_id', { unsigned: true }).notNull(),
     content: mediumtext('content'),
     createdAt: datetime('created_at').notNull(),
     updatedAt: datetime('updated_at').notNull(),

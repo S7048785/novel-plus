@@ -21,11 +21,11 @@ const metadataFields = {
   updateTime: z.string().trim().max(64).nullable().optional(),
 };
 
-/** 新增书籍（手动录入用；采集写入不走这里） */
+/** 新增书籍（手动录入用；采集写入不走这里）。bookUrl/sourceId 可空（手动导入的书无源站地址/书源） */
 export const createBookSchema = z.object({
   name: z.string().trim().min(1, '书名不能为空').max(255),
-  bookUrl: z.string().trim().min(1, '书籍 URL 不能为空').max(512),
-  sourceId: z.coerce.number().int().positive('sourceId 必须是正整数'),
+  bookUrl: z.string().trim().min(1, '书籍 URL 不能为空').max(512).nullish(),
+  sourceId: z.coerce.number().int().positive('sourceId 必须是正整数').nullish(),
   tocUrl: z.string().trim().max(512).nullable().optional(),
   ...metadataFields,
 });
