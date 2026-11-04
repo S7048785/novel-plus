@@ -12,12 +12,22 @@ import {
   type CreateBookInput,
 } from '../dto/book.payload.schema.js';
 import { listBookQuerySchema, type ListBookQuery } from '../dto/book.query.schema.js';
+import { bookListResponseSchema, bookSummarySchema } from '../dto/book.response.schema.js';
+import {
+  batchDeleteResponseSchema,
+  deleteResponseSchema,
+  idResponseSchema,
+} from '../../../common/dto/common.response.schema.js';
+import { ApiZodCreated, ApiZodOk } from '../../../common/dto/openapi.js';
 
 /**
  * 书籍后台管理。
  *
  * 路径用 /book 而非 /crawl/book：/crawl/book 已被「采集一本书」占用（POST），
  * 且这里的语义是管理已入库的书籍，不该混进采集命名空间。
+ *
+ * @ApiZodOk / @ApiZodCreated 只负责「响应长什么样」——入参校验与文档由参数装饰器上的
+ * zod schema 自动完成，两者配合才能让 Swagger 与前端 codegen 拿到完整契约。
  */
 @Controller('book')
 export class BookController {
@@ -25,36 +35,42 @@ export class BookController {
 
   /** 分页列表（含书源名与已采集章节数），支持书名/作者关键字、书源、分类筛选 */
   @Get()
+  @ApiZodOk(bookListResponseSchema)
   list(@Query({ schema: listBookQuerySchema }) query: ListBookQuery) {
     return this.service.list(query);
   }
 
   /** 书籍详情 */
   @Get(':id')
+  @ApiZodOk(bookSummarySchema)
   get(@Param({ schema: idParamsSchema }) params: IdParams) {
     return this.service.get(params.id);
   }
 
   /** 手动新增书籍（正常情况下书籍由采集写入） */
   @Post()
+  @ApiZodCreated(idResponseSchema)
   create(@Body({ schema: createBookSchema }) body: CreateBookInput) {
     return this.service.create(body);
   }
 
   /** 全量覆盖元数据（PUT）——未传的元数据字段会被置 null，只想改个别字段用 PATCH */
   @Put(':id')
+  @ApiZodOk(idResponseSchema)
   replace(@Param({ schema: idParamsSchema }) params: IdParams, @Body({ schema: bookMetadataSchema }) body: BookMetadataInput) {
     return this.service.replace(params.id, body);
   }
 
   /** 部分更新元数据（PATCH）——只改传入字段，传 null 表示清空 */
   @Patch(':id')
+  @ApiZodOk(idResponseSchema)
   patch(@Param({ schema: idParamsSchema }) params: IdParams, @Body({ schema: bookMetadataPatchSchema }) body: BookMetadataPatch) {
     return this.service.patch(params.id, body);
   }
 
   /** 删除书籍（章节与正文由外键级联删除，不可恢复） */
   @Delete(':id')
+  @ApiZodOk(deleteResponseSchema)
   remove(@Param({ schema: idParamsSchema }) params: IdParams) {
     return this.service.remove(params.id);
   }
@@ -62,6 +78,7 @@ export class BookController {
   /** 批量删除书籍 */
   @Post('batch-delete')
   @HttpCode(HttpStatus.OK)
+  @ApiZodOk(batchDeleteResponseSchema)
   removeMany(@Body({ schema: batchDeleteBookSchema }) body: BatchDeleteBookInput) {
     return this.service.removeMany(body.ids);
   }

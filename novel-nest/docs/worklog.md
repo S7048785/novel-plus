@@ -41,10 +41,19 @@
 - 只对采集路径生效，后台手动编辑章节不强制转换；存量 HTML 正文未迁移
 - 决策背景与完整契约归档于 `docs/content-format.md`
 
+接口契约 OpenAPI 化
+- 接入 `@nestjs/swagger`：请求参数/请求体由参数装饰器上的 zod schema 自动转换（zod 4.2+ 的 `~standard.jsonSchema` 扩展），响应用 `@ApiZodOk` 显式声明，规范暴露在 `/openapi.json`
+- 所有业务接口加全局前缀 `/api`；`AuthController` 从 `/auth/me` 挪到 `/user/me`，否则会被 better-auth 的 `/api/auth/*` 通配先接住
+- 补齐原先手写 TS 类型的三个采集接口（search / crawl book / test rule）的 zod schema，顺带获得校验
+- crawl/test 改为显式 200（试跑不是创建资源）；crawl 的方法 `crawlBook` / `testRule` 改名为 `book` / `ruleTest`，避免 operationId 变成 `crawlCrawlBook`
+- 前端 lithe-admin 用 `@hey-api/openapi-ts` 生成 `src/api/generated`；同时修掉模板的 `{ code, message, data }` 信封假设（novel-nest 不分信封）
+- 完整说明归档于 `docs/openapi.md`
+
 ## 未提交 / 待办
 
 - explore（分类浏览）仍未实现，youjiuxs 目前只能按已知 URL 采集；bqquge 的 exploreUrl 也在等这个能力
-- 搜索结果的 `lastChapter` / `updateTime` 解析后仍被丢弃
+- 搜索结果的 `lastChapter` 解析后仍被丢弃
+- 前端 `lithe-admin` 尚未提交：模板拉取、登录对接 better-auth、axios 封装去信封、hey-api 生成 `src/api/generated` 都在工作区里
 - 远端（GitHub）还停在 `eb98a95`，11-03 之后的提交尚未推送
 
 ## 提交记录
