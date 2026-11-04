@@ -1,3 +1,4 @@
+import type { BookOrigin } from '../common/book/origin.js';
 import {
   boolean,
   datetime,
@@ -73,19 +74,35 @@ export const book = mysqlTable(
     latestChapterTitle: varchar('latest_chapter_title', { length: 255 }),
     totalChapterNum: int('total_chapter_num'),
     /**
-     * 归属账号（user.id）：决定「作家只能管自己的书」。
+     * 入库方式：crawl（爬虫采集）/ author（作家上传）/ manual（手动导入）。
      *
-     * null 表示「系统书」——采集入库的书不属于任何账号，只有管理员能改。
-     * 不声明外键，理由同 source_id：删账号时不该连带删书，book 的归属是弱引用，
-     * 账号被删后遗留的书按系统书处理（owner_id 置 null 由应用层在删账号时处理）。
+     * 与 source_id 是两个维度，别混：source_id 是「从哪个站点采集」，origin 是「怎么进的库」。
+     * 取值由 common/book/origin.ts 的 BOOK_ORIGINS 约束，列只给长度（varchar(16)），
+     * 理由与 user_role.role 相同：加第四种方式时不用 ALTER。
+     *
+     * 默认 crawl 是给历史数据兜底——0006 之前入库的书全是采集来的。
      */
-    ownerId: varchar('owner_id', { length: 36 }),
+    origin: varchar('origin', { length: 16 }).$type<BookOrigin>().notNull().default('crawl'),
+    /**
+     * 归属作家账号（user.id）：这本书归谁，作家端靠它做「只能管自己的书」。
+     *
+     * 与 author 列是两件事，别混：
+     * - author（varchar）是「书上印的作者名」，展示用，可能是笔名、也可能为空；
+     * - author_id 是「哪个后台账号拥有这本书」。
+     * 采集来的书通常有 author 却没有 author_id（不属于任何账号）；作家上传的书两者都有。
+     *
+     * 不声明外键，理由与 source_id / origin 一致：删账号不该连带删书。
+     * 账号被删时由 UserService 把这一列置 null（书留着，变回无主），不让库里留悬空 id。
+     */
+    authorId: varchar('author_id', { length: 36 }),
+
     createdAt: datetime('created_at').notNull(),
     updatedAt: datetime('updated_at').notNull(),
   },
   (t) => [
     index('idx_book_source').on(t.sourceId),
-    index('idx_book_owner').on(t.ownerId),
+    index('idx_book_origin').on(t.origin),
+    index('idx_book_author').on(t.authorId),
     uniqueIndex('uq_book_source_url').on(t.sourceId, t.bookUrl),
   ],
 );

@@ -28,8 +28,7 @@
 1. 界面入口：前端路由守卫用 `canEnterAdmin`（等于 `isAdmin`）拦，非管理员登录后直接落 `/403`。
 2. 数据入口：`src/admin/` 下每个 controller 都标了 `@Roles('admin')`，绕过界面直接打接口也是 403。
 
-作家身份当前**没有任何可用接口**——`book.owner_id` 那套归属校验是为作家端预留的：
-上线时新建 `src/author/` 模块、复用 `BookService` / `BookChapterService` 并传入真实 viewer，
+作家身份当前**没有任何可用接口**：上线作家端时新建 `src/author/` 模块、复用 `BookService` / `BookChapterService`，
 `@Roles('admin','author')` 只出现在新模块上；`src/admin/` 始终保持只放管理员。
 
 ## 为什么是关联表而不是 user.role 一列
@@ -54,22 +53,46 @@
 
 - **403 而不是 401**：前端对 401 的既定处理是清登录态跳登录页，非管理员访问受限接口被踢下线，比提示「没权限」糟糕得多。
 - **身份不进会话**：`user_role` 是独立表，better-auth 的 session 拿不到；每次请求按主键查一次，换来「改身份下一个请求即生效」，不需要重新登录。
-- **接口级 vs 数据级**：`@Roles('admin')` 只回答「能不能进这个接口」；「这本书是不是你写的」依赖数据，写在 `book-access.ts`（当前恒为管理员，作家端接入后才会生效）。
+- **接口级即可满足当前需要**：`@Roles('admin')` 回答「能不能进这个接口」。原先还有一层「数据级」（这本书是不是你写的），
+  随 `book.owner_id` 一起移除了，见下节。
 
-## 数据级隔离（书籍归属）
+## 书籍入库方式（book.origin）
 
-`book.owner_id`（`varchar(36)`，可空，无外键）：
+早期设计里有一列 `book.owner_id`（归属账号），用来做「作家只能管自己的书」。**2026-11-05 已移除**：
+作家端没上线前它恒为 null，而「书归谁」需要账号体系支撑，不如先记系统自己能确定的信息。
 
-| 取值 | 含义 | 谁可以改 |
+现在用 `book.origin`（`varchar(16)`，非空，默认 `crawl`）：
+
+| 取值 | 含义 | 谁写入 |
 |---|---|---|
-| `null` | 系统书（采集入库、管理员建的公共书） | 只有管理员 |
-| 某 user.id | 该作家名下的书 | 该书作者 + 管理员 |
+| `crawl` | 爬虫采集 | `CrawlService` 落库时显式写死 |
+| `author` | 作家上传 | 将来的作家端 |
+| `manual` | 手动导入 | 后台手动新增（服务端默认值） |
 
-规则：
+要点：
 
-- 列表的归属过滤**下沉到 SQL**，否则分页的 `total` 会把别人的书算进去。
-- 作家建书自动归自己；想指定给别人 → 403（只有管理员能指派）。
-- 归属转移只有管理员能发起；PUT/PATCH 里「不传 ownerId」表示**不改**，不用 PUT 的「不传即置空」语义——一次普通元数据保存顺手把书变成系统书，后果是它从作家后台消失，比少传字段更难排查。
+- **和 `source_id` 不是一回事**：`source_id` 是「从哪个站点采集」，`origin` 是「以什么方式进的库」。
+  `crawl` 的书一般有 `source_id`；`manual` / `author` 通常没有。
+- 列表支持按 `origin` 筛选；取值域在 `common/book/origin.ts` 的 `BOOK_ORIGINS`，加第四种方式只改那个文件。
+- `origin` 不跟 PUT 的「未传即置空」语义：不传 = 不改，避免一次元数据保存把渠道改回默认值。
+- 迁移：`0006_drop_book_owner.sql`（删列 + 删索引）、`0007_add_book_origin.sql`（加列 + 加索引），
+  默认 `crawl` 正好兜住历史数据——迁移前入库的书全是采集来的。
+
+## 归属作家（book.author_id）
+
+origin 只记「怎么进来的」，不记「归谁」。当天晚些时候补了 `book.author_id`（`varchar(36)`，可空，
+指向 `user.id`）作为作家端做「只能管自己的书」的数据基础。
+
+- **与 `author` 列是两回事**：`author` 是书上印的作者名（展示用，可能是笔名）；
+  `author_id` 是后台账号。采集的书通常有前者、没有后者。
+- **写入口径**：新建（POST）可传；PATCH / PUT 里不传 = 不改、传 null = 清空归属（同样不吃「未传即置空」）。
+  服务端校验：账号必须存在**且持有 author 身份**——指派给纯读者会产生「有主但谁也管不了」的书。
+- **删账号联动**：`UserService` 删除账号前先把名下书的 `author_id` 置 null（弱引用无外键，
+  不清会留下指向已删账号的悬空 id），书本身保留。
+- 采集路径（`BookRepository.update`）**不碰** `author_id`：采集是覆盖元数据，不能把管理员指派好的归属冲掉。
+- 前端：列表加「归属作家」列与筛选下拉（候选=持有 author 身份的账号，一次拉 100 个）；
+  弹窗加归属下拉，清空即无主。列表按 `authorName` 展示（join user 得到）。
+- 迁移：`0008_add_book_author_id.sql`（加列 + `idx_book_author`）。
 
 ## 防锁死三件套
 
@@ -119,4 +142,6 @@ reader 反着定义是因为它是所有账号的基础身份：按「持有」�
   接入时复用 `BookService` / `BookChapterService` 并传真实 viewer，同时在 `src/author/` 里声明 `@Roles('admin','author')`；
   `src/admin/` 不动，也不用改 `canEnterAdmin`（作家进的是作家端，不是后台）。
 - 读者侧（书架、评论、阅读进度）在另一个前端（Java 的 novel-plus），本仓库不涉及。
-- 采集入库的书 `owner_id` 为 null；把系统书派给某位作家需要管理员在后台手动改归属（当前没有批量指派 UI，接口已支持）。
+- 书籍归属已有 `book.author_id`（见「归属作家」小节），但 `book-access.ts` 那套按归属过滤的 service
+  逻辑在移除 owner_id 时一并删了——作家端上线时需要把它按 author_id 重写（列表传 `authorId` 筛选即可），
+  不用改 `src/admin/`。

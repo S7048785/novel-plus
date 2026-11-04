@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { generateRandomString, hashPassword } from 'better-auth/crypto';
 import { UserRepository, type UserPatch, type UserSummary } from '../../../common/repo/user.repo.js';
 import { UserRoleRepository, sortRoles, withBaseRole } from '../../../common/repo/user-role.repo.js';
+import { BookRepository } from '../../../common/repo/book.repo.js';
 import { BASE_ROLE, type UserRole } from '../../../common/authz/role.js';
 import type { CreateUserInput, UpdateUserInput } from '../dto/user.payload.schema.js';
 import type { ListUserQuery } from '../dto/user.query.schema.js';
@@ -55,6 +56,7 @@ export class UserService {
   constructor(
     private readonly repo: UserRepository,
     private readonly roleRepo: UserRoleRepository,
+    private readonly bookRepo: BookRepository,
   ) {}
 
   async list(query: ListUserQuery): Promise<UserListResult> {
@@ -150,6 +152,10 @@ export class UserService {
     // 删人 = 身份清零，所以 nextRoles 传空数组
     await this.assertNotRemovingLastAdmin([id], target.roles, []);
 
+    // 先清掉名下书籍的归属再删账号：book.author_id 是弱引用（无外键），
+    // 不清会留下指向已删账号的 id，列表里显示成「—」却查不出原因
+    await this.bookRepo.clearAuthorByUserIds([id]);
+
     const deleted = await this.repo.deleteById(id);
     if (deleted === 0) throw new NotFoundException(`用户 ${id} 不存在`);
     return { id, deleted };
@@ -170,6 +176,9 @@ export class UserService {
         throw new BadRequestException('不能删除全部管理员，至少保留一个');
       }
     }
+
+    // 与单删同理：先把这批账号名下书籍的归属清空，再删账号
+    await this.bookRepo.clearAuthorByUserIds(ids);
 
     const deleted = await this.repo.deleteMany(ids);
     return { deleted, ids };

@@ -202,7 +202,9 @@ export class CrawlService {
       bookId = existing.id;
       await this.bookRepo.update(bookId, info);
     } else {
-      bookId = await this.bookRepo.insert({ ...info, bookUrl, sourceId });
+      // origin 显式写 crawl：insert 的默认值是 manual（后台手填的场景），
+      // 采集入库必须标清渠道，否则「按来源统计」会把采集来的书算成手动导入
+      bookId = await this.bookRepo.insert({ ...info, bookUrl, sourceId, origin: 'crawl' });
     }
 
     // 3. 目录页

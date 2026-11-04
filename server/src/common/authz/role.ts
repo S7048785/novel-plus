@@ -36,7 +36,8 @@ export const assignableRoleSchema = z.enum(ASSIGNABLE_ROLES);
  * 当前请求者（从会话 + user_role 解析而来）。
  *
  * 设计成显式参数而不是从请求上下文里偷偷取：
- * service 层的归属判断需要知道「谁在操作」，把它作为入参能让每个方法都清楚自己依赖身份，
+ * 需要按「谁在操作」区分数据时（例如将来作家端只看自己的书），把它作为入参能让每个方法都清楚
+ * 自己依赖身份，
  * 也方便单测直接传一个假 viewer。
  */
 export interface Viewer {
@@ -44,11 +45,8 @@ export interface Viewer {
   roles: UserRole[];
 }
 
-export function hasRole(viewer: Viewer, role: UserRole): boolean {
-  return viewer.roles.includes(role);
-}
-
-/** 管理员：全量数据可见，也是唯一能进后台的身份 */
-export function isAdmin(viewer: Viewer): boolean {
-  return hasRole(viewer, 'admin');
-}
+/**
+ * 判断身份用的是「集合里有某个值」，直接写 `viewer.roles.includes(role)` 即可，
+ * 不再单独包 hasRole / isAdmin：唯一的调用点是守卫和 @Roles 的比对，
+ * 包一层只会多一个需要同步的抽象（原先的归属校验已随笔归属字段一起移除）。
+ */

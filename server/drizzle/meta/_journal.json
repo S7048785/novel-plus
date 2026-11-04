@@ -43,6 +43,27 @@
       "when": 1793808372200,
       "tag": "0005_user_roles_and_book_owner",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1793814110803,
+      "tag": "0006_drop_book_owner",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1793814121842,
+      "tag": "0007_add_book_origin",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1793814820786,
+      "tag": "0008_add_book_author_id",
+      "breakpoints": true
     }
   ]
 }

@@ -1,8 +1,6 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query } from '@nestjs/common';
 import { BookChapterService } from '../service/chapter.service.js';
 import { Roles } from '../../../auth/roles.decorator.js';
-import { CurrentUser } from '../../../auth/current-user.decorator.js';
-import type { Viewer } from '../../../common/authz/role.js';
 import {
   batchDeleteChapterSchema,
   bookIdParamsSchema,
@@ -35,7 +33,7 @@ import { ApiZodCreated, ApiZodOk } from '../../../common/dto/openapi.js';
  * 也不会和 BookController 的 /admin/book/:id 冲突（层级不同，Nest 不会把 15/chapter 当成 id）。
  *
  * 身份：与书籍一致——`src/admin/` 下只允许管理员。章节没有独立归属，
- * 能改这本书的人才能改它的章节，具体校验在 service 里按 bookId 查书的归属后完成
+ * 具体校验在 service 里确认书存在、章节属于该书
  * （作家端接入后，同一段逻辑会按 viewer 缩小范围，这里不用改）。
  */
 @Roles('admin')
@@ -49,9 +47,8 @@ export class BookChapterController {
   list(
     @Param({ schema: bookIdParamsSchema }) params: BookIdParams,
     @Query({ schema: listChapterQuerySchema }) query: ListChapterQuery,
-    @CurrentUser() viewer: Viewer,
   ) {
-    return this.service.list(params.bookId, query, viewer);
+    return this.service.list(params.bookId, query);
   }
 
   /** 章节详情（含正文） */
@@ -59,9 +56,8 @@ export class BookChapterController {
   @ApiZodOk(chapterDetailSchema)
   get(
     @Param({ schema: chapterParamsSchema }) params: ChapterParams,
-    @CurrentUser() viewer: Viewer,
   ) {
-    return this.service.get(params.bookId, params.chapterId, viewer);
+    return this.service.get(params.bookId, params.chapterId);
   }
 
   /** 新增章节；index 不传则自动追加到目录末尾 */
@@ -70,9 +66,8 @@ export class BookChapterController {
   create(
     @Param({ schema: bookIdParamsSchema }) params: BookIdParams,
     @Body({ schema: createChapterSchema }) body: CreateChapterInput,
-    @CurrentUser() viewer: Viewer,
   ) {
-    return this.service.create(params.bookId, body, viewer);
+    return this.service.create(params.bookId, body);
   }
 
   /** 更新章节（PATCH）：content 传 null 或空串表示删除正文 */
@@ -81,9 +76,8 @@ export class BookChapterController {
   update(
     @Param({ schema: chapterParamsSchema }) params: ChapterParams,
     @Body({ schema: updateChapterSchema }) body: UpdateChapterInput,
-    @CurrentUser() viewer: Viewer,
   ) {
-    return this.service.update(params.bookId, params.chapterId, body, viewer);
+    return this.service.update(params.bookId, params.chapterId, body);
   }
 
   /** 删除章节（正文一并删除） */
@@ -91,9 +85,8 @@ export class BookChapterController {
   @ApiZodOk(deleteResponseSchema)
   remove(
     @Param({ schema: chapterParamsSchema }) params: ChapterParams,
-    @CurrentUser() viewer: Viewer,
   ) {
-    return this.service.remove(params.bookId, params.chapterId, viewer);
+    return this.service.remove(params.bookId, params.chapterId);
   }
 
   /** 批量删除章节（只在本书范围内生效） */
@@ -103,8 +96,7 @@ export class BookChapterController {
   removeMany(
     @Param({ schema: bookIdParamsSchema }) params: BookIdParams,
     @Body({ schema: batchDeleteChapterSchema }) body: BatchDeleteChapterInput,
-    @CurrentUser() viewer: Viewer,
   ) {
-    return this.service.removeMany(params.bookId, body.ids, viewer);
+    return this.service.removeMany(params.bookId, body.ids);
   }
 }

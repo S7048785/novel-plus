@@ -1,7 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { and, count, desc, eq, inArray, like, or } from 'drizzle-orm';
 import { DB, type Db } from '../../db/database.js';
-import { book, bookChapter, bookContent, crawlSource, type BookRow, type NewBookRow } from '../../db/schema.js';
+import { book, bookChapter, bookContent, crawlSource, user, type BookRow, type NewBookRow } from '../../db/schema.js';
+import { DEFAULT_BOOK_ORIGIN, type BookOrigin } from '../book/origin.js';
 
 /**
  * 书籍 Repository：负责 book 表的读写。
@@ -23,8 +24,15 @@ export interface BookUpsertData {
   wordCount?: string;
   latestChapterTitle?: string;
   totalChapterNum?: number | null;
-  /** 归属账号；null = 系统书（采集入库的书不属于任何账号） */
-  ownerId?: string | null;
+  /** 入库方式：crawl / author / manual，不传则用默认值 manual */
+  origin?: BookOrigin;
+  /**
+   * 归属作家账号（user.id）。
+   *
+   * 只在「新增」和「后台改归属」时写入；采集路径（update）不碰它——
+   * 采集是覆盖元数据，不该把管理员指派好的归属冲掉。
+   */
+  authorId?: string | null;
 }
 
 /** 列表/详情返回的行：book 字段 + 书源名 + 已采集章节数 */
@@ -43,8 +51,12 @@ export interface BookSummary {
   totalChapterNum: number | null;
   tocUrl: string | null;
   intro: string | null;
-  /** 归属账号；null = 系统书，只有管理员可操作 */
-  ownerId: string | null;
+  /** 入库方式：crawl（爬虫采集）/ author（作家上传）/ manual（手动导入） */
+  origin: BookOrigin;
+  /** 归属作家账号 id；null = 无主（采集入库的书、或账号被删后遗留） */
+  authorId: string | null;
+  /** 归属作家的账号昵称（join user 得到；无主时为 null） */
+  authorName: string | null;
   /** book_chapter 里实际落库的章节数 */
   chapterCount: number;
   createdAt: Date;
@@ -57,8 +69,10 @@ export interface ListBookFilter {
   /** 同时匹配书名与作者 */
   keyword?: string;
   sourceId?: number;
-  /** 归属范围：管理员不传（看全部），作家传自己的 id（只看自己名下） */
-  ownerId?: string;
+  /** 入库方式筛选 */
+  origin?: BookOrigin;
+  /** 归属作家账号 id 筛选 */
+  authorId?: string;
 }
 
 /** 后台管理可编辑的元数据（含 null 表示清空） */
@@ -70,7 +84,9 @@ export interface BookMetadataPatch {
   wordCount?: string | null;
   latestChapterTitle?: string | null;
   totalChapterNum?: number | null;
-  ownerId?: string | null;
+  origin?: BookOrigin;
+  /** 归属作家账号；null = 移除归属（变回无主） */
+  authorId?: string | null;
 }
 
 /** 列表/详情的公共字段选择 */
@@ -87,7 +103,10 @@ const summarySelection = {
   totalChapterNum: book.totalChapterNum,
   tocUrl: book.tocUrl,
   intro: book.intro,
-  ownerId: book.ownerId,
+  origin: book.origin,
+  authorId: book.authorId,
+  /** 归属作家的账号昵称；两个查询都要 leftJoin(user)，没归属时自然为 null */
+  authorName: user.name,
   createdAt: book.createdAt,
   updatedAt: book.updatedAt,
 };
@@ -136,7 +155,8 @@ export class BookRepository {
         wordCount: data.wordCount,
         latestChapterTitle: data.latestChapterTitle,
         totalChapterNum: data.totalChapterNum ?? null,
-        ownerId: data.ownerId ?? null,
+        origin: data.origin ?? DEFAULT_BOOK_ORIGIN,
+        authorId: data.authorId ?? null,
         createdAt: now,
         updatedAt: now,
       })
@@ -174,8 +194,8 @@ export class BookRepository {
       conditions.push(or(like(book.name, kw), like(book.author, kw)));
     }
     if (filter.sourceId !== undefined) conditions.push(eq(book.sourceId, filter.sourceId));
-    // 归属范围：作家只看自己名下的书；管理员不传，看到全部
-    if (filter.ownerId !== undefined) conditions.push(eq(book.ownerId, filter.ownerId));
+    if (filter.origin !== undefined) conditions.push(eq(book.origin, filter.origin));
+    if (filter.authorId !== undefined) conditions.push(eq(book.authorId, filter.authorId));
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 
     const [totalRow] = await this.db.select({ value: count() }).from(book).where(where);
@@ -186,6 +206,7 @@ export class BookRepository {
       .select(summarySelection)
       .from(book)
       .leftJoin(crawlSource, eq(crawlSource.id, book.sourceId))
+      .leftJoin(user, eq(user.id, book.authorId))
       .where(where)
       .orderBy(desc(book.id))
       .limit(filter.pageSize)
@@ -202,6 +223,7 @@ export class BookRepository {
       .select(summarySelection)
       .from(book)
       .leftJoin(crawlSource, eq(crawlSource.id, book.sourceId))
+      .leftJoin(user, eq(user.id, book.authorId))
       .where(eq(book.id, id))
       .limit(1);
 
@@ -240,35 +262,35 @@ export class BookRepository {
     if (patch.wordCount !== undefined) set.wordCount = patch.wordCount;
     if (patch.latestChapterTitle !== undefined) set.latestChapterTitle = patch.latestChapterTitle;
     if (patch.totalChapterNum !== undefined) set.totalChapterNum = patch.totalChapterNum;
-    if (patch.ownerId !== undefined) set.ownerId = patch.ownerId;
+    if (patch.origin !== undefined) set.origin = patch.origin;
+    if (patch.authorId !== undefined) set.authorId = patch.authorId;
 
     await this.db.update(book).set(set).where(eq(book.id, id));
   }
 
   /**
-   * 在给定 id 里筛出属于某账号的书。
-   * 作家批量删除前用它校验「选中的是不是全是自己的」，避免静默跳过别人的书。
+   * 把指定账号名下的书全部改为无主（author_id = null）。
+   *
+   * 删账号时调用：book.author_id 是弱引用（没建外键），不清就会留下指向不存在账号的 id，
+   * join 出来的 authorName 为 null、列表显示「—」，看着像数据坏了。
+   * 书本身保留——内容不该跟着账号一起消失。
    */
-  async filterOwnedIds(ids: number[], ownerId: string): Promise<number[]> {
-    if (ids.length === 0) return [];
-    const rows = await this.db
-      .select({ id: book.id })
-      .from(book)
-      .where(and(inArray(book.id, ids), eq(book.ownerId, ownerId)));
-    return rows.map((row) => row.id);
+  async clearAuthorByUserIds(userIds: string[]): Promise<number> {
+    if (userIds.length === 0) return 0;
+    const [result] = await this.db
+      .update(book)
+      .set({ authorId: null, updatedAt: new Date() })
+      .where(inArray(book.authorId, userIds));
+    return result?.affectedRows ?? 0;
   }
 
   /**
-   * 只取「这本书归谁」——章节接口每次操作都要判归属，
+   * 书是否存在——章节接口每次操作都要先确认书在，
    * 没必要把 intro、目录地址这些大字段一起读出来。
    */
-  async findOwnershipById(id: number): Promise<{ id: number; ownerId: string | null } | null> {
-    const rows = await this.db
-      .select({ id: book.id, ownerId: book.ownerId })
-      .from(book)
-      .where(eq(book.id, id))
-      .limit(1);
-    return rows[0] ?? null;
+  async existsById(id: number): Promise<boolean> {
+    const rows = await this.db.select({ id: book.id }).from(book).where(eq(book.id, id)).limit(1);
+    return rows.length > 0;
   }
 
   /**

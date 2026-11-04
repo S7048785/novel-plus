@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { bookOriginSchema } from '../../../common/book/origin.js';
 
 /**
  * 书籍后台管理的**响应**结构（仅用于 OpenAPI 文档与前端 codegen，不参与校验）。
@@ -25,7 +26,9 @@ export const bookSummarySchema = z.object({
   totalChapterNum: z.number().int().nullable(),
   tocUrl: z.string().nullable(),
   intro: z.string().nullable(),
-  ownerId: z.string().nullable().describe('归属账号 id；null 表示系统书（只有管理员可操作）'),
+  origin: bookOriginSchema.describe('入库方式：crawl 爬虫采集 / author 作家上传 / manual 手动导入'),
+  authorId: z.string().nullable().describe('归属作家账号 id；null 表示无主（不属于任何账号）'),
+  authorName: z.string().nullable().describe('归属作家的账号昵称；无主或账号已删时为 null'),
   chapterCount: z.number().int().describe('实际落库的章节数'),
   createdAt: dateTime,
   updatedAt: dateTime,
