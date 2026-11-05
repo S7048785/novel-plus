@@ -4,7 +4,7 @@ import { CrawlSourceRepository } from '../../../common/repo/crawl-source.repo.js
 import { UserRepository } from '../../../common/repo/user.repo.js';
 import { UserRoleRepository } from '../../../common/repo/user-role.repo.js';
 import { DEFAULT_BOOK_ORIGIN } from '../../../common/book/origin.js';
-import type { BookMetadataInput, BookMetadataPatch, CreateBookInput } from '../dto/book.payload.schema.js';
+import type { BookMetadataInput, BookMetadataPatch, CreateBookInput } from '@novel-plus/shared/dto';
 import type { ListBookQuery } from '../dto/book.query.schema.js';
 
 export interface BookListResult {

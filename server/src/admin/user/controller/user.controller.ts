@@ -19,20 +19,17 @@ import {
   batchDeleteUserSchema,
   createUserSchema,
   updateUserSchema,
-  userIdParamsSchema,
-  type BatchDeleteUserInput,
-  type CreateUserInput,
-  type UpdateUserInput,
-  type UserIdParams,
-} from '../dto/user.payload.schema.js';
-import { listUserQuerySchema, type ListUserQuery } from '../dto/user.query.schema.js';
-import {
   userBatchDeleteResponseSchema,
   userDeleteResponseSchema,
   userIdResponseSchema,
   userListResponseSchema,
   userSummarySchema,
-} from '../dto/user.response.schema.js';
+  type BatchDeleteUserInput,
+  type CreateUserInput,
+  type UpdateUserInput,
+} from '@novel-plus/shared/dto';
+import { userIdParamsSchema, type UserIdParams } from '../dto/user.params.schema.js';
+import { listUserQuerySchema, type ListUserQuery } from '../dto/user.query.schema.js';
 
 /**
  * 用户后台管理（`/api/admin/users`）：账号 CRUD + 身份授予。

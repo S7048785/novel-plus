@@ -1,36 +1,31 @@
+import { ASSIGNABLE_ROLES, USER_ROLES, USER_ROLE_LABELS } from '@novel-plus/shared'
+import type { AssignableRole, UserRole } from '@novel-plus/shared'
+import type { MeResponse, SessionUser, UserSummary } from '@novel-plus/shared/dto'
+
 import request from '@/utils/request'
 
 /**
- * 身份（角色）定义，与后端 server/src/common/authz/role.ts 一一对应。
+ * 身份（角色）的值域与中文名都来自 `@novel-plus/shared`——与后端同一份定义，不再手抄一遍。
  *
- * 三个身份不是等级而是能力集合，一个账号可以同时持有多个：
+ * 这里只做转出，调用方的 import 路径（`@/api`）不变：
  * - reader：基础身份，所有账号都有（能登录、能读）
  * - author：拥有书籍/章节接口能力，只能操作自己名下的书；**进不了后台**
  * - admin：全量权限（用户管理、书源采集、所有书），也是唯一能进后台的身份
  */
-export const USER_ROLES = ['reader', 'author', 'admin'] as const
+export { ASSIGNABLE_ROLES, USER_ROLES, USER_ROLE_LABELS }
+export type { AssignableRole, UserRole }
 
-export type UserRole = (typeof USER_ROLES)[number]
+/**
+ * session.user 的形状：**不含 roles**。
+ *
+ * roles 来自独立的 user_role 表，不在 better-auth 的会话对象里（见后端 meResponseSchema 的说明）。
+ * 之前前端把它写成含 roles 的 UserInfo，是个类型谎言——登录响应的 user 里根本没有这个字段；
+ * 现在用 shared 的 sessionUserSchema 推出的精确类型，需要身份就去看 `MeResult.roles`。
+ */
+export type { SessionUser }
 
-/** 可勾选的身份（reader 是基础身份，界面上展示但不可取消） */
-export const ASSIGNABLE_ROLES = ['author', 'admin'] as const
-
-export const USER_ROLE_LABELS: Record<UserRole, string> = {
-  reader: '读者',
-  author: '作家',
-  admin: '管理员',
-}
-
-/** 后端 better-auth 返回的用户对象（与服务端的 user 表对齐） */
-export interface UserInfo {
-  id: string
-  name: string
-  email: string
-  emailVerified: boolean
-  image: string | null
-  createdAt: string
-  updatedAt: string
-}
+/** 后台用户列表行：账号字段 + 身份集合（对应后端 userSummarySchema） */
+export type UserInfo = UserSummary
 
 /** 登录参数：better-auth 的 email+password 登录 */
 export interface SignInParams {
@@ -38,20 +33,19 @@ export interface SignInParams {
   password: string
 }
 
-/** 当前登录用户 + 身份 */
-export interface MeResult {
-  user: UserInfo | null
-  roles: UserRole[]
-}
+/** 当前登录用户 + 身份（来自 shared 的 meResponseSchema；未登录时 user 为 null、roles 为空） */
+export type MeResult = MeResponse
 
 /**
  * 登录：POST /api/auth/sign-in/email
  *
  * 后端返回 { redirect, token, user }，但登录态实际靠 Set-Cookie 写入 httpOnly 会话 cookie，
  * 前端不持久化 token（token 仅用于 better-auth 自身的重定向协议，业务上不用）。
+ *
+ * 这里的 user 是 session.user（无 roles）：身份要再问一次 /user/me，所以调用方登录后必须 fetchMe。
  */
 export async function signIn(data: SignInParams) {
-  return request<{ redirect: boolean; token: string | null; user: UserInfo }>({
+  return request<{ redirect: boolean; token: string | null; user: SessionUser }>({
     url: '/auth/sign-in/email',
     method: 'post',
     data,

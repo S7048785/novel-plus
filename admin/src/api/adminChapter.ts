@@ -1,3 +1,11 @@
+import type {
+  ChapterDetail,
+  ChapterListResponse,
+  ChapterSummary,
+  CreateChapterInput,
+  UpdateChapterInput,
+} from '@novel-plus/shared/dto'
+
 import request from '@/utils/request'
 
 /**
@@ -6,50 +14,23 @@ import request from '@/utils/request'
  * 章节挂在书下面：路由前缀自带 bookId，接口也全部带这个参数——
  * 后端会在 service 里校验「章节属于该书」，前端不要跨书拼 id。
  *
- * 字段对齐 server/src/admin/book/dto/chapter*.schema.ts：
+ * 所有类型都由 shared 的 schema 推出（`z.infer`）：
  * - 列表行不带正文（一章正文几 KB，整页带上会把响应撑爆），只给 contentLength；
  * - 正文只在详情接口里返回，编辑时才拉一次。
  */
+export type AdminChapterSummary = ChapterSummary
 
-/** 列表行（不含正文） */
-export interface AdminChapterSummary {
-  id: number
-  bookId: number
-  title: string
-  /** 源站章节地址；手动导入的章节为 null */
-  url: string | null
-  /** 章节在目录中的序号 */
-  index: number
-  /** 正文字数（CHAR_LENGTH）；无正文为 0 */
-  contentLength: number
-  createdAt: string
-  updatedAt: string
-}
+export type AdminChapterDetail = ChapterDetail
 
-/** 详情：列表字段 + 正文（Markdown） */
-export interface AdminChapterDetail extends AdminChapterSummary {
-  content: string | null
-}
+export type AdminChapterListResult = ChapterListResponse
 
+/** 列表查询参数（手写：后端的 query schema 是 URL 字符串的适配层，前端不消费） */
 export interface AdminChapterQuery {
   page: number
   pageSize: number
 }
 
-export interface AdminChapterListResult {
-  list: AdminChapterSummary[]
-  total: number
-  page: number
-  pageSize: number
-}
-
-export interface CreateAdminChapterParams {
-  title: string
-  url?: string | null
-  /** 不传 = 自动追加到目录末尾（由后端算最大值 +1） */
-  index?: number
-  content?: string | null
-}
+export type CreateAdminChapterParams = CreateChapterInput
 
 /**
  * 更新章节（PATCH 语义）：
@@ -57,12 +38,7 @@ export interface CreateAdminChapterParams {
  * - url 传 null = 清空源站地址；
  * - content 传 null 或空串 = 删除正文。
  */
-export interface UpdateAdminChapterParams {
-  title?: string
-  url?: string | null
-  index?: number
-  content?: string | null
-}
+export type UpdateAdminChapterParams = UpdateChapterInput
 
 export async function getAdminChapters(bookId: number, params: AdminChapterQuery) {
   return request<AdminChapterListResult>({

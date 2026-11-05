@@ -5,6 +5,12 @@ packages:
   - server
   - packages/*
 
+# 依赖版本的唯一定义处：跨包共享的库写 `catalog:` 引用这里，避免各包写版本号后解析出两份实例。
+# zod 尤其关键——schema 定义在 shared、由 server 拿来校验，两份实例会让 instanceof / 类型 /
+# z.toJSONSchema 都出问题（同版本时 pnpm 会链接到同一个物理路径，实测 instanceof 为 true）。
+catalog:
+  zod: ^4.6.7
+
 # pnpm 11 起默认不执行依赖的 postinstall，且未批准的构建脚本会让 install 直接失败。
 # 这里逐个表态：需要的放行，不需要的显式关掉，避免每次安装都被拦下。
 allowBuilds:

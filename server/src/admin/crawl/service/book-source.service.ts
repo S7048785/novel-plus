@@ -2,7 +2,7 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import { CrawlSourceRepository, type CrawlSourceSummary, type ListSourceFilter } from '../../../common/repo/crawl-source.repo.js';
 import { CrawlService } from './crawl.service.js';
 import type { BookSource } from '../../../common/model/book-source.js';
-import type { BookSourceInput, BookSourcePatch } from '../dto/book-source.schema.js';
+import type { BookSourceInput, BookSourcePatch } from '@novel-plus/shared/dto';
 
 /** 书源测试结果 */
 export interface SourceTestResult {

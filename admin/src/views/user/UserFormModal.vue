@@ -19,7 +19,7 @@ import { createAdminUser, updateAdminUser } from '@/api'
 import { useComponentThemeOverrides, useResettableReactive } from '@/composables'
 import { getErrorMessage } from '@/utils/error'
 
-import type { AdminUser, UserRole } from '@/api'
+import type { AdminUser, AssignableRole, UserRole } from '@/api'
 import type { FormInst, FormRules } from 'naive-ui'
 
 /**
@@ -132,8 +132,12 @@ watch(
 )
 
 /** 提交给后端的只有附加身份：reader 是基础身份，由服务端补齐 */
-function assignableRoles(): UserRole[] {
-  return form.roles.filter((role) => role !== 'reader')
+/**
+ * 提交用的身份：reader 是服务端自动补齐的基础身份，不能由客户端指定，所以要从表单值里剥掉。
+ * 用类型守卫而不是 `as`：确实做了收窄，写错字面量时编译期就会报。
+ */
+function assignableRoles(): AssignableRole[] {
+  return form.roles.filter((role): role is AssignableRole => role !== 'reader')
 }
 
 function handleClose() {

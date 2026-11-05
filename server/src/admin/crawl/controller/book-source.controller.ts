@@ -1,28 +1,26 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Put, Query } from '@nestjs/common';
 import { BookSourceService } from '../service/book-source.service.js';
 import {
-  batchDeleteSchema,
-  bookSourcePatchSchema,
-  bookSourceSchema,
-  idParamsSchema,
-  listSourceQuerySchema,
-  testSourceSchema,
-  type BatchDeleteInput,
-  type BookSourceInput,
-  type BookSourcePatch,
-  type ListSourceQuery,
-  type TestSourceInput,
-} from '../dto/book-source.schema.js';
-import {
+  batchDeleteResponseSchema,
+  batchDeleteSourceSchema,
   bookSourceDetailSchema,
   bookSourceListResponseSchema,
-  sourceTestResponseSchema,
-} from '../dto/book-source.response.schema.js';
-import {
-  batchDeleteResponseSchema,
+  bookSourcePatchSchema,
+  bookSourceSchema,
   deleteResponseSchema,
   idResponseSchema,
-} from '../../../common/dto/common.response.schema.js';
+  sourceTestResponseSchema,
+  testSourceSchema,
+  type BatchDeleteSourceInput,
+  type BookSourceInput,
+  type BookSourcePatch,
+  type TestSourceInput,
+} from '@novel-plus/shared/dto';
+import {
+  idParamsSchema,
+  listSourceQuerySchema,
+  type ListSourceQuery,
+} from '../dto/book-source.schema.js';
 import { ApiZodCreated, ApiZodOk } from '../../../common/dto/openapi.js';
 import { Roles } from '../../../auth/roles.decorator.js';
 
@@ -88,7 +86,7 @@ export class BookSourceController {
   @Post('batch-delete')
   @HttpCode(HttpStatus.OK)
   @ApiZodOk(batchDeleteResponseSchema)
-  removeMany(@Body({ schema: batchDeleteSchema }) body: BatchDeleteInput) {
+  removeMany(@Body({ schema: batchDeleteSourceSchema }) body: BatchDeleteSourceInput) {
     return this.service.removeMany(body.ids);
   }
 

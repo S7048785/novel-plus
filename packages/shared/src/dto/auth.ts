@@ -1,10 +1,11 @@
 import { z } from 'zod';
-import { userRoleSchema } from '../common/authz/role.js';
+
+import { userRoleSchema } from '@novel-plus/shared/dto/enums';
 
 /**
- * 鉴权接口的**响应**结构（仅用于 OpenAPI 文档与前端 codegen，不参与校验）。
+ * 鉴权接口的**响应**结构（仅用于 OpenAPI 文档与前端类型，不参与校验）。
  *
- * 结构对齐 better-auth 的 `session.user`（见 db/schema.ts 的 user 表）：
+ * 结构对齐 better-auth 的 `session.user`（见 server 的 db/schema.ts 的 user 表）：
  * id 是 36 位随机字符串而不是自增数字，头像字段叫 image 而非 avatar。
  */
 
@@ -17,6 +18,8 @@ export const sessionUserSchema = z.object({
   createdAt: z.string().describe('ISO 8601 时间字符串'),
   updatedAt: z.string().describe('ISO 8601 时间字符串'),
 });
+
+export type SessionUser = z.infer<typeof sessionUserSchema>;
 
 /**
  * 当前登录用户 + 身份。
@@ -31,3 +34,5 @@ export const meResponseSchema = z.object({
   user: sessionUserSchema.nullable(),
   roles: z.array(userRoleSchema).describe('用户的身份集合；未登录为空数组'),
 });
+
+export type MeResponse = z.infer<typeof meResponseSchema>;

@@ -9,7 +9,7 @@ import { menu } from '@/router/menu'
 
 import { pinia } from '.'
 
-import type { UserInfo, UserRole } from '@/api'
+import type { SessionUser, UserRole } from '@/api'
 
 /**
  * 登录态 = httpOnly cookie 会话，不是 token。
@@ -23,7 +23,13 @@ import type { UserInfo, UserRole } from '@/api'
  * 界面便利性不值得为它再做一套实时同步。
  */
 export const useUserStore = defineStore('userStore', () => {
-  const user = useStorage<UserInfo | null>('user', null)
+  /**
+   * 会话里的用户（session.user 形状，**不含 roles**）。
+   *
+   * 身份单独存在下面的 roles 里：roles 来自 user_role 关联表，不在 better-auth 的会话对象中。
+   * 这里只用来渲染昵称/邮箱/头像，需要判断权限请看 roles。
+   */
+  const user = useStorage<SessionUser | null>('user', null)
 
   /** 身份集合；未登录为空数组 */
   const roles = useStorage<UserRole[]>('userRoles', [])

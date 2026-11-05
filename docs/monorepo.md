@@ -8,7 +8,7 @@
 - 采用 **pnpm workspace 轻量方案**：一个锁文件、一套命令，**不引入 turbo / nx**。
 - 进 workspace 的包只有两个：`admin`、`server`；`novel-plus/`（490MB 老 Java 项目）**排除在外**。
 - 唯一有破坏性的动作是 **server 从 npm 迁到 pnpm**；四项验证（type-check / build / test / test:e2e）全绿才算迁移成功。
-- 收益按优先级排：**统一包管理器 > 根脚本编排 > 共享契约常量**。第三项（`packages/shared`）的包基建与「两端端口」已在 2026-11-06 落地，`BOOK_ORIGINS` 等常量待迁；codegen 仍是可选后续。
+- 收益按优先级排：**统一包管理器 > 根脚本编排 > 共享契约常量**。三项都已在 2026-11-06 落地：端口、`BOOK_ORIGINS` 等常量、以及全部请求体/响应 schema 都在 `packages/shared`；codegen 仍是可选后续（schema 共享后优先级已下降，见文末）。
 
 ## 执行状态（2026-11-06）
 
@@ -95,19 +95,22 @@ novel-plus/
 | 2 | server 迁 pnpm：删 `package-lock.json` 与 `node_modules`，`pnpm install` | type-check / build / test / test:e2e 全绿；`start:dev` 正常（SWC 编译 <1s） | 恢复 `package-lock.json`（git 历史）+ `npm install` | ✅ |
 | 3 | 根脚本：`dev`（并行双端）、`openapi`、`type-check`、`test` | 一条命令起双端；后端未启动时 `openapi` 报可读错误而非生成空文件 | 删除对应 script | ✅ |
 | 4 | 文档与忽略规则同步 | 新环境按文档从零跑通 | 还原文档 | ✅ |
-| 5 | `packages/shared` 抽共享常量 | 前后端不再各自定义同一份常量，build 全绿 | 移除引用，恢复各包内定义 | 端口已做；`BOOK_ORIGINS` 待做 |
-| 6 | （可选）codegen 替换手写 API 层 | 生成产物与手写层无损替换 | 恢复手写 `adminBook.ts` / `adminChapter.ts` | 未做 |
+| 5 | `packages/shared` 抽共享常量与接口 schema | 前后端不再各自定义同一份常量/类型，build 全绿 | 移除引用，恢复各包内定义 | 已做（端口 + 值域/中文名 + body/response schema） |
+| 6 | （可选）codegen 替换手写 API 层 | 生成产物与手写层无损替换 | 恢复手写 `adminBook.ts` / `adminChapter.ts` | 未做，且优先级已降（`z.infer` 已解决类型单一来源） |
 
 ### 落地后的目录
 
 ```
 novel-plus/
 ├── package.json             # private，scripts + packageManager，无运行时依赖
-├── pnpm-workspace.yaml      # packages + allowBuilds
+├── pnpm-workspace.yaml      # packages + allowBuilds + catalog(zod)
 ├── pnpm-lock.yaml           # 唯一锁文件（已入库）
 ├── .npmrc                   # engine-strict（子包不再各自持有）
 ├── scripts/openapi.mjs      # openapi 闸门：探测 → 生成 → 校验
-├── packages/shared/         # 零依赖共享包，源码直出（不编译）
+├── packages/shared/         # 源码直出（不编译）
+│   └── src/
+│       ├── index.ts         # 零依赖：端口 + 角色/入库方式的值域与中文名
+│       └── dto/             # zod schema（前端只 import type）
 ├── admin/                   # 树内无 lock / .npmrc，端口不在这里
 ├── server/                  # 树内无 lock，dev 脚本 = nest start --watch
 └── novel-plus/              # 老 Java 项目，仍在 .gitignore
@@ -140,6 +143,82 @@ export const config = {
 > 为什么不在服务端写 `import '../../../packages/shared/src/index.ts'`：`server/src` 是 tsc 的 `rootDir`，包外文件进编译单元会让 `dist` 里留下指向包外的路径，产物单独部署就断链。走 npm 包名的裸导入，路径交给 Node 解析，产物只依赖 `node_modules`。
 
 **踩坑记录：`.env` 里的 `PORT` 会静默盖掉共享包的值。** `@nestjs/config` 在 `NestFactory.create` 阶段就把 `.env` 灌进 `process.env`，而 `app.listen()` 在那之后，所以 `server/.env` 写 `PORT=3000` 时改共享包完全没反应。已从 `server/.env` 删掉 `PORT` 与 `BETTER_AUTH_URL`（`server/.env` 不入库，新克隆没有这个问题）。另外 `main.ts` 现在会打一行 `[Bootstrap] HTTP 监听 http://localhost:3000`——Nest 默认不打印监听地址，排查端口来源时很费劲。
+
+## 接口契约共享：`packages/shared` 的 `dto` 子入口
+
+后端的 zod schema 不再躺在各自项目里，而是集中到 shared，前端用 `import type` 拿类型、后端拿它做运行时校验与 OpenAPI 文档。
+
+```
+packages/shared/src/
+├── index.ts           # 零依赖入口：端口 + 角色/入库方式的值域与中文名
+└── dto/
+    ├── index.ts       # 统一 re-export
+    ├── enums.ts       # userRoleSchema / assignableRoleSchema / bookOriginSchema
+    ├── common.ts      # { id } / { id, deleted } / { deleted, ids } 三种信封
+    ├── book.ts        # createBookSchema / bookMetadata(Patch) / batchDelete + 响应结构
+    ├── chapter.ts
+    ├── user.ts
+    ├── crawl.ts
+    └── auth.ts
+```
+
+### 搬哪些、不搬哪些
+
+| 类别 | 是否搬 | 理由 |
+|---|---|---|
+| 请求体（body） | 搬 | 纯 JSON 结构，`z.infer` 出来的类型前端可直接用 |
+| 响应结构（response） | 搬 | 收益最大：替掉了前端 4 个手写 interface（`AdminBook` / `AdminChapterSummary` / `UserInfo`…） |
+| 列表查询（query） | **不搬** | 职责是「URL 字符串 → 值」（`z.coerce` / `.default` / `'true'→boolean` 的 transform）。`z.infer` 出来 `page: number` 是必填、`z.input` 出来 `page: unknown`（coerce 的输入类型就是 unknown），两种都不适合前端 |
+| 路由参数（params） | **不搬** | 描述服务端路由形状，前端只知道 URL 模板 |
+| 常量与中文名 | 搬，但放零依赖入口 | 前端要**值导入**（下拉、标签），不能和 zod 混在一个入口 |
+
+### 四个必须记住的技术决定
+
+**1. shared 内部一律用包名自引用，不用相对路径。** 因为 shared 是源码直出、Node 直接加载 `.ts`：
+
+- 写 `'./enums.js'` → TS 能过（nodenext 映射到 `.ts`），但 **Node 运行时找不到文件**；
+- 写 `'./enums.ts'` → 需要 `allowImportingTsExtensions`，而 shared 被 server/admin 编译时**每个消费包都得跟着开**；
+- 写 `'@novel-plus/shared/dto/enums'` → 路径交给 `exports` 的 `"./dto/*": "./src/dto/*.ts"` 解析，两边配置都不用动。✓
+
+**2. zod 版本只能有一个，用 pnpm catalog 钉住。**
+
+```yaml
+# pnpm-workspace.yaml
+catalog:
+  zod: ^4.6.7
+```
+
+各包写 `"zod": "catalog:"`。pnpm 会把它们链接到**同一个物理路径**（`node_modules/.pnpm/zod@4.6.7/`），所以 `schema instanceof z.ZodObject === true`、`z.toJSONSchema(sharedSchema)` 都正常。版本分叉的症状是：类型层 `ZodObject 不能赋给 ZodType`、`toJSONSchema` 抛错或产出空 schema。注意 `~standard.validate` 本身跨版本也能跑（那是协议层），所以「校验突然失效」几乎不会是版本问题——先看类型错误。
+
+**3. admin 的 zod 只进 `devDependencies`。** 因为 shared 是 `.ts` 直出，`vue-tsc` 会真的类型检查 `packages/shared/src/dto/*.ts`，解析不到 zod 就 `TS2307`。但前端只用 `import type`，编译后整条 import 消失——已实测 `admin/dist` 里没有任何 zod 运行时符号（`ZodError` / `invalid_type` / `_zod` / `safeParse` 全为 0）。真要在前端跑 `schema.safeParse` 才需要挪到 `dependencies`。
+
+**4. 主入口 `index.ts` 绝不能 re-export dto。** `BookFormModal` 里 `import { BOOK_ORIGINS } from '@novel-plus/shared'` 是**值导入**，会触发模块求值；一旦主入口顶层出现 `import { z } from 'zod'`，zod 就进产物了。这就是 `./dto` 必须是独立子入口的原因。
+
+### 实测结果（2026-11-06）
+
+| 验证项 | 结果 |
+|---|---|
+| `pnpm type-check` | shared + server + admin 三包通过 |
+| `pnpm -r test` | server 54 + admin 15 用例通过 |
+| `pnpm -r build` | 通过（admin `built in 7.30s`） |
+| `pnpm test:e2e` | 5 用例通过 |
+| 参数校验仍生效 | 非法 body → `400 {"message":["title: 章节标题不能为空"]}`；`index: "3"` 被 coerce 成 `3` |
+| `pnpm openapi` | 19 个 path → 生成 24KB，字段与迁移前一致 |
+| 前端产物 | 无 zod 运行时符号；**只有** `import packageJson` 带进去的 `zod:"catalog:"` 字符串 |
+
+### 迁移中暴露的两个既有类型谎言
+
+都是 shared 的精确类型把老代码的断言顶出来的，值得记住：
+
+1. **`signIn` 返回的 `user` 里没有 `roles`。** better-auth 的 `session.user` 就是没有，角色在独立的 `user_role` 表。前端原来把 `UserInfo`（含 roles）当登录响应用，现在拆成 `SessionUser`（会话）+ `UserSummary`（列表行含 roles），store 里存 `SessionUser`，权限判断继续看 `roles` 那个独立 ref。
+2. **`CreateAdminUserParams.roles` 只接受 `author | admin`。** 表单值是 `UserRole[]`（含 reader），提交时要剥掉。原来用 `filter(r => r !== 'reader')` 返回 `UserRole[]`，靠调用点「心照不宣」；现在改成类型守卫 `filter((r): r is AssignableRole => r !== 'reader')`，写错字面量编译期就报。
+
+### 遗留
+
+- `admin/src/api/*.ts` 里的**查询参数**类型仍是手写（`AdminBookQuery` / `AdminUserQuery` / `AdminChapterQuery`），这是上表「不搬」的直接结果，不是遗漏。
+- crawl 与 auth 的 schema 一并搬了，虽然前端暂时没有消费它们（书源的页面还没做）。理由是避免「一半在 shared、一半在 server」的中间态。
+- codegen（原步骤 6）的优先级可以降下来了：响应类型已经由 `z.infer` 提供，codegen 的独有价值只剩「前端完全不碰后端源码」。
+
 
 
 ## 关键决策与理由

@@ -1,7 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 import { Session, type SessionResult } from './session.decorator.js';
 import { ViewerService } from './viewer.service.js';
-import { meResponseSchema } from './auth.response.schema.js';
+import { meResponseSchema } from '@novel-plus/shared/dto';
 import { ApiZodOk } from '../common/dto/openapi.js';
 import { Public } from './public.decorator.js';
 

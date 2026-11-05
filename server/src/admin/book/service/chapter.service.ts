@@ -5,7 +5,8 @@ import {
   type ChapterDetail,
   type ChapterSummary,
 } from '../../../common/repo/book-chapter.repo.js';
-import type { CreateChapterInput, ListChapterQuery, UpdateChapterInput } from '../dto/chapter.schema.js';
+import type { CreateChapterInput, UpdateChapterInput } from '@novel-plus/shared/dto';
+import type { ListChapterQuery } from '../dto/chapter.schema.js';
 
 export interface ChapterListResult {
   list: ChapterSummary[];

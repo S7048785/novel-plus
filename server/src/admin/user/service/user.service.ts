@@ -4,7 +4,7 @@ import { UserRepository, type UserPatch, type UserSummary } from '../../../commo
 import { UserRoleRepository, sortRoles, withBaseRole } from '../../../common/repo/user-role.repo.js';
 import { BookRepository } from '../../../common/repo/book.repo.js';
 import { BASE_ROLE, type UserRole } from '../../../common/authz/role.js';
-import type { CreateUserInput, UpdateUserInput } from '../dto/user.payload.schema.js';
+import type { CreateUserInput, UpdateUserInput } from '@novel-plus/shared/dto';
 import type { ListUserQuery } from '../dto/user.query.schema.js';
 
 /** 后台视角的用户：账号字段 + 身份集合 */

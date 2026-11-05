@@ -1,17 +1,19 @@
 import { z } from 'zod';
-import { assignableRoleSchema } from '../../../common/authz/role.js';
+
+import { assignableRoleSchema, userRoleSchema } from '@novel-plus/shared/dto/enums';
 
 /**
- * 用户后台管理的请求体 schema（POST / PATCH / batch-delete）。
+ * 用户后台管理的请求体与响应结构。
  *
- * 字段范围刻意收窄：只允许改「展示信息 + 身份」（昵称、邮箱、头像、roles）。
+ * 请求体字段范围刻意收窄：只允许改「展示信息 + 身份」（昵称、邮箱、头像、roles）。
  * - user.id 是 better-auth 生成的主键，改了会让所有会话与 account 行失去归属，绝不暴露
  * - emailVerified 属于验证流程的产物，管理员手改等于伪造「已验证」，不开放
  * - 密码只在建号时设置（本次范围仅基础 CRUD，重置密码留给后续单独接口）
  *
- * roles 里只接受 author / admin：reader 是所有账号的基础身份，由服务端自动补齐，
- * 让客户端来决定「要不要给 reader」只会制造「没有身份的账号」这种非法状态。
+ * 用户 id 的**路由参数** schema（`userIdParamsSchema`）留在 server：那是把 URL 段还原成值的适配层。
  */
+
+/* ------------------------------ 请求体 ------------------------------ */
 
 /**
  * 密码规则必须与 auth.config.ts 的 emailAndPassword.minPasswordLength / maxPasswordLength 对齐：
@@ -57,16 +59,6 @@ export const updateUserSchema = z.object({
 
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
 
-/**
- * 用户 id 是 better-auth 生成的 32 位字符串（varchar(36)），不是自增数字，
- * 所以不能复用 common/dto/common.schema.ts 里数字型的 idParamsSchema。
- */
-export const userIdParamsSchema = z.object({
-  id: z.string().trim().min(1, '用户 id 不能为空').max(36, '用户 id 最多 36 字符'),
-});
-
-export type UserIdParams = z.infer<typeof userIdParamsSchema>;
-
 export const batchDeleteUserSchema = z.object({
   ids: z
     .array(z.string().trim().min(1).max(36))
@@ -75,3 +67,55 @@ export const batchDeleteUserSchema = z.object({
 });
 
 export type BatchDeleteUserInput = z.infer<typeof batchDeleteUserSchema>;
+
+/* ------------------------------ 响应体 ------------------------------ */
+
+/** MySQL datetime 序列化成 JSON 后是 ISO 8601 字符串，不是 Date 对象 */
+const dateTime = z.string().describe('ISO 8601 时间字符串');
+
+/** 注意这里**不含任何密码/account 字段**：后台看得到「谁能登录」，但看不到凭据本身。 */
+export const userSummarySchema = z.object({
+  id: z.string().describe('better-auth 生成的 32 位字符串主键'),
+  name: z.string(),
+  email: z.string(),
+  emailVerified: z.boolean().describe('邮箱是否已验证；当前没有 SMTP，恒为 false'),
+  image: z.string().nullable().describe('头像地址'),
+  roles: z.array(userRoleSchema).describe('身份集合，至少含 reader；按 reader → author → admin 排序'),
+  createdAt: dateTime,
+  updatedAt: dateTime,
+});
+
+export type UserSummary = z.infer<typeof userSummarySchema>;
+
+export const userListResponseSchema = z.object({
+  list: z.array(userSummarySchema),
+  total: z.number().int(),
+  page: z.number().int(),
+  pageSize: z.number().int(),
+});
+
+export type UserListResponse = z.infer<typeof userListResponseSchema>;
+
+// 写接口的信封不能复用 common.ts —— 那套的 id 是 number（自增主键），用户的 id 是字符串，
+// 形状不同，强行复用会让前端拿到的类型对不上。
+
+/** 新增/更新成功：返回受影响用户的 id */
+export const userIdResponseSchema = z.object({ id: z.string() });
+
+export type UserIdResponse = z.infer<typeof userIdResponseSchema>;
+
+/** 单条删除成功 */
+export const userDeleteResponseSchema = z.object({
+  id: z.string(),
+  deleted: z.number().int().describe('实际删除的行数，0 表示记录不存在'),
+});
+
+export type UserDeleteResponse = z.infer<typeof userDeleteResponseSchema>;
+
+/** 批量删除成功：ids 里不存在的记录会被忽略，不报错 */
+export const userBatchDeleteResponseSchema = z.object({
+  deleted: z.number().int().describe('实际删除的行数'),
+  ids: z.array(z.string()),
+});
+
+export type UserBatchDeleteResponse = z.infer<typeof userBatchDeleteResponseSchema>;

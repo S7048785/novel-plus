@@ -3,27 +3,25 @@ import { BookChapterService } from '../service/chapter.service.js';
 import { Roles } from '../../../auth/roles.decorator.js';
 import {
   batchDeleteChapterSchema,
-  bookIdParamsSchema,
-  chapterParamsSchema,
-  createChapterSchema,
-  listChapterQuerySchema,
-  updateChapterSchema,
-  type BatchDeleteChapterInput,
-  type BookIdParams,
-  type ChapterParams,
-  type CreateChapterInput,
-  type ListChapterQuery,
-  type UpdateChapterInput,
-} from '../dto/chapter.schema.js';
-import {
+  batchDeleteResponseSchema,
   chapterDetailSchema,
   chapterListResponseSchema,
-} from '../dto/chapter.response.schema.js';
-import {
-  batchDeleteResponseSchema,
+  createChapterSchema,
   deleteResponseSchema,
   idResponseSchema,
-} from '../../../common/dto/common.response.schema.js';
+  updateChapterSchema,
+  type BatchDeleteChapterInput,
+  type CreateChapterInput,
+  type UpdateChapterInput,
+} from '@novel-plus/shared/dto';
+import {
+  bookIdParamsSchema,
+  chapterParamsSchema,
+  listChapterQuerySchema,
+  type BookIdParams,
+  type ChapterParams,
+  type ListChapterQuery,
+} from '../dto/chapter.schema.js';
 import { ApiZodCreated, ApiZodOk } from '../../../common/dto/openapi.js';
 
 /**

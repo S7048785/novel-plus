@@ -1,11 +1,20 @@
 import { z } from 'zod';
-import { bookOriginSchema } from '../../../common/book/origin.js';
+
+import { bookOriginSchema } from '@novel-plus/shared/dto/enums';
 
 /**
- * 书籍后台管理的请求体 schema（POST / PUT / PATCH / batch-delete）。
+ * 书籍后台管理的请求体与响应结构。
  *
- * 与查询参数分文件（book.query.schema.ts）：这里不做 coerce，只约束 JSON 结构。
+ * 请求体（create/metadata/patch/batchDelete）是**运行时真校验**：schema 挂在 controller 的
+ * `@Body({ schema })` 上，由 Nest 的 StandardSchemaValidationPipe 执行。
+ * 响应结构只用于 OpenAPI 文档与前端类型，不参与校验——所以两者虽然同文件，语义不同。
+ *
+ * 与查询参数分开放（查询参数留在 server 的 `book.query.schema.ts`）：
+ * 查询参数永远来自 URL（全是字符串，需要 coerce），请求体来自 JSON（类型齐全），
+ * 两者的校验规则和默认值策略不同，混在一份里容易漏掉 coerce。
  */
+
+/* ------------------------------ 请求体 ------------------------------ */
 
 /**
  * 可编辑的元数据字段（不含 bookUrl / sourceId，那两个决定"这本书是谁"）。
@@ -81,3 +90,41 @@ export const batchDeleteBookSchema = z.object({
 });
 
 export type BatchDeleteBookInput = z.infer<typeof batchDeleteBookSchema>;
+
+/* ------------------------------ 响应体 ------------------------------ */
+
+/** MySQL datetime 序列化成 JSON 后是 ISO 8601 字符串，不是 Date 对象 */
+const dateTime = z.string().describe('ISO 8601 时间字符串');
+
+/** 列表/详情行：book 字段 + 书源名 + 已采集章节数 */
+export const bookSummarySchema = z.object({
+  id: z.number().int(),
+  name: z.string(),
+  author: z.string().nullable(),
+  coverUrl: z.string().nullable(),
+  bookUrl: z.string().nullable().describe('源站书籍地址；手动导入的书为 null'),
+  sourceId: z.number().int().nullable(),
+  sourceName: z.string().nullable().describe('书源名；书源被删后为 null'),
+  wordCount: z.string().nullable(),
+  latestChapterTitle: z.string().nullable(),
+  totalChapterNum: z.number().int().nullable(),
+  tocUrl: z.string().nullable(),
+  intro: z.string().nullable(),
+  origin: bookOriginSchema.describe('入库方式：crawl 爬虫采集 / author 作家上传 / manual 手动导入'),
+  authorId: z.string().nullable().describe('归属作家账号 id；null 表示无主（不属于任何账号）'),
+  authorName: z.string().nullable().describe('归属作家的账号昵称；无主或账号已删时为 null'),
+  chapterCount: z.number().int().describe('实际落库的章节数'),
+  createdAt: dateTime,
+  updatedAt: dateTime,
+});
+
+export type BookSummary = z.infer<typeof bookSummarySchema>;
+
+export const bookListResponseSchema = z.object({
+  list: z.array(bookSummarySchema),
+  total: z.number().int(),
+  page: z.number().int(),
+  pageSize: z.number().int(),
+});
+
+export type BookListResponse = z.infer<typeof bookListResponseSchema>;

@@ -3,19 +3,16 @@ import { CrawlService } from '../service/crawl.service.js';
 import { evalFieldOnDoc } from '../parser/rule-engine.js';
 import { bookDetailQuerySchema, type BookDetailQuery } from '../dto/book-detail.schema.js';
 import {
-  crawlBookBodySchema,
-  searchQuerySchema,
-  testRuleBodySchema,
-  type CrawlBookBody,
-  type SearchQuery,
-  type TestRuleBody,
-} from '../dto/crawl.request.schema.js';
-import {
   bookDetailSchema,
+  crawlBookBodySchema,
   crawlBookResponseSchema,
   searchResponseSchema,
+  testRuleBodySchema,
   testRuleResponseSchema,
-} from '../dto/crawl.response.schema.js';
+  type CrawlBookBody,
+  type TestRuleBody,
+} from '@novel-plus/shared/dto';
+import { searchQuerySchema, type SearchQuery } from '../dto/crawl.request.schema.js';
 import { ApiZodOk } from '../../../common/dto/openapi.js';
 import { Roles } from '../../../auth/roles.decorator.js';
 

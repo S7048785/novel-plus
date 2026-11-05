@@ -4,21 +4,20 @@ import { idParamsSchema, type IdParams } from '../../../common/dto/common.schema
 import { Roles } from '../../../auth/roles.decorator.js';
 import {
   batchDeleteBookSchema,
+  batchDeleteResponseSchema,
+  bookListResponseSchema,
   bookMetadataPatchSchema,
   bookMetadataSchema,
+  bookSummarySchema,
   createBookSchema,
+  deleteResponseSchema,
+  idResponseSchema,
   type BatchDeleteBookInput,
   type BookMetadataInput,
   type BookMetadataPatch,
   type CreateBookInput,
-} from '../dto/book.payload.schema.js';
+} from '@novel-plus/shared/dto';
 import { listBookQuerySchema, type ListBookQuery } from '../dto/book.query.schema.js';
-import { bookListResponseSchema, bookSummarySchema } from '../dto/book.response.schema.js';
-import {
-  batchDeleteResponseSchema,
-  deleteResponseSchema,
-  idResponseSchema,
-} from '../../../common/dto/common.response.schema.js';
 import { ApiZodCreated, ApiZodOk } from '../../../common/dto/openapi.js';
 
 /**
