@@ -1,0 +1,16 @@
+{
+  "name": "@novel-plus/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "前后端共享的常量与配置（零运行时依赖）",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "type-check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.2"
+  }
+}

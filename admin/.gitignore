@@ -30,10 +30,11 @@ coverage
 
 *.tsbuildinfo
 
-# Package lock files
+# 锁文件统一放在仓库根（pnpm workspace 只有一个 pnpm-lock.yaml，且要入库）。
+# 子包里再出现锁文件就是误操作，直接忽略掉。
 package-lock.json
 pnpm-lock.yaml
 yarn.lock
 bun.lock
 
-,env.production
+.env.production

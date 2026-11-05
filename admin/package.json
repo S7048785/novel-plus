@@ -4,13 +4,14 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": "^20.19.0 || >=22.12.0"
+    "node": ">=22.18.0"
   },
   "license": "MIT",
   "scripts": {
     "dev": "vite",
     "build": "run-p type-check \"build-only {@}\" --",
     "preview": "vite preview",
+    "test": "vitest run",
     "test:unit": "vitest",
     "build-only": "vite build",
     "type-check": "vue-tsc --build",
@@ -33,6 +34,7 @@
     "@iconify-json/ph": "^1.2.2",
     "@iconify/tailwind4": "^1.2.3",
     "@iconify/vue": "^5.0.1",
+    "@novel-plus/shared": "workspace:*",
     "@tailwindcss/vite": "^4.3.2",
     "@tsconfig/node22": "^22.0.5",
     "@types/chroma-js": "^3.1.2",

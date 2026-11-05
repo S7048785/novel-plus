@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { StandardSchemaValidationPipe } from '@nestjs/common';
+import { Logger, StandardSchemaValidationPipe } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import type { Application } from 'express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -8,6 +8,7 @@ import { AppModule } from './app.module.js';
 import { AUTH } from './auth/auth.tokens.js';
 import type { Auth } from './auth/auth.config.js';
 import { attachAuth } from './auth/session.decorator.js';
+import { getServerPort } from './config/ports.js';
 
 async function bootstrap() {
   /**
@@ -82,6 +83,11 @@ async function bootstrap() {
     jsonDocumentUrl: 'openapi.json',
   });
 
-  await app.listen(process.env.PORT ?? 3000);
+  // 端口来自 packages/shared 的 config.ports.server（PORT 环境变量优先）：见 config/ports.ts。
+  // Nest 不像 vite 那样把监听地址打进日志，而端口有两个来源，所以这里显式打一行，
+  // 免得排查「为什么它跑在 3000」时只能靠猜（.env 里的 PORT 会静默盖掉共享包的值）。
+  const port = getServerPort();
+  Logger.log(`HTTP 监听 http://localhost:${port}`, 'Bootstrap');
+  await app.listen(port);
 }
 await bootstrap();

@@ -1,0 +1,23 @@
+{
+  "name": "novel-plus",
+  "version": "0.1.0",
+  "private": true,
+  "description": "novel-plus monorepo：admin（Vue 3 管理端）+ server（Nest 后端）",
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "devDependencies": {
+    "@novel-plus/shared": "workspace:*"
+  },
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "dev:admin": "pnpm --filter admin dev",
+    "dev:server": "pnpm --filter server dev",
+    "build": "pnpm -r build",
+    "type-check": "pnpm -r type-check",
+    "test": "pnpm -r test",
+    "test:e2e": "pnpm --filter server test:e2e",
+    "openapi": "node scripts/openapi.mjs"
+  }
+}

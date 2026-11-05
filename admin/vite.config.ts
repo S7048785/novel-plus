@@ -1,13 +1,15 @@
 import { fileURLToPath, URL } from 'node:url'
 
+import { config } from '@novel-plus/shared'
 import tailwindcss from '@tailwindcss/vite'
 import vue from '@vitejs/plugin-vue'
 import vueJsx from '@vitejs/plugin-vue-jsx'
 import { defineConfig, loadEnv } from 'vite'
 
-// https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
+  // 两端端口都来自 packages/shared（唯一出处）。dev 下允许用 VITE_SITE_BASE_API 临时指向别的后端。
+  const backendOrigin = env.VITE_SITE_BASE_API || `http://localhost:${config.ports.server}`
 
   return {
     plugins: [vue(), vueJsx(), tailwindcss()],
@@ -17,11 +19,11 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
-      port: 5799,
+      port: config.ports.admin,
       host: true,
       proxy: {
         '/api': {
-          target: env.VITE_SITE_BASE_API,
+          target: backendOrigin,
           changeOrigin: true,
         },
       },

@@ -7,7 +7,8 @@ import { requestEventBus } from '@/event-bus'
  *
  * 所以这里不能读 localStorage 塞 token——token 根本不在前端手里，
  * 由浏览器自动携带 better-auth 的 session cookie。
- * withCredentials 必须为 true，否则跨源（前端 5799 / 后端 3000）时 cookie 不会被发送。
+ * withCredentials 必须为 true，否则跨源（前端与后端端口不同，两个端口都在 packages/shared）时
+ * cookie 不会被发送。
  *
  * baseURL 为 /api：服务端用 setGlobalPrefix('api') 把所有业务接口挂在 /api 下，
  * 与 better-auth 的 /api/auth/* 同前缀，所以下面的 url 只写 /admin/users、/auth/sign-in/email 即可。

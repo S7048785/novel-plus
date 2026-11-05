@@ -1,0 +1,13 @@
+# 仓库只做「安装 + 脚本编排」，不介入任何子包的构建方式。
+# novel-plus/（老 Java 项目）刻意不在此列。
+packages:
+  - admin
+  - server
+  - packages/*
+
+# pnpm 11 起默认不执行依赖的 postinstall，且未批准的构建脚本会让 install 直接失败。
+# 这里逐个表态：需要的放行，不需要的显式关掉，避免每次安装都被拦下。
+allowBuilds:
+  '@scarf/scarf': false # 纯统计上报脚本，本机不需要运行
+  '@swc/core': true # server 的 SWC 编译器二进制
+  esbuild: true # vite / vitest 的打包器二进制

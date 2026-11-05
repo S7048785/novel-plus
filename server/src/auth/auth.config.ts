@@ -1,5 +1,6 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
+import { getServerPort } from '../config/ports.js';
 import type { Db } from '../db/database.js';
 import * as schema from '../db/schema.js';
 
@@ -29,7 +30,8 @@ const SESSION_EXPIRES_IN = 60 * 60 * 24 * 7;
 const SESSION_UPDATE_AGE = 60 * 60 * 24;
 
 export function createAuth(db: Db, options: AuthFactoryOptions = {}) {
-  const baseURL = process.env.BETTER_AUTH_URL ?? `http://localhost:${process.env.PORT ?? 3000}`;
+  // 端口与 main.ts 同源（packages/shared，PORT 环境变量优先），避免两处各写一个默认值
+  const baseURL = process.env.BETTER_AUTH_URL ?? `http://localhost:${getServerPort()}`;
 
   return betterAuth({
     /**
