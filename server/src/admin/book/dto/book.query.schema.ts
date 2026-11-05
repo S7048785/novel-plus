@@ -15,8 +15,6 @@ export const listBookQuerySchema = z.object({
   sourceId: z.coerce.number().int().positive().optional(),
   /** 入库方式筛选：爬虫采集 / 作家上传 / 手动导入 */
   origin: bookOriginSchema.optional(),
-  /** 归属作家账号筛选（作家端「只看自己的书」就是固定传自己的 id） */
-  authorId: z.string().trim().min(1).max(36).optional(),
 });
 
 export type ListBookQuery = z.infer<typeof listBookQuerySchema>;

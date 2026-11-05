@@ -71,8 +71,6 @@ export interface ListBookFilter {
   sourceId?: number;
   /** 入库方式筛选 */
   origin?: BookOrigin;
-  /** 归属作家账号 id 筛选 */
-  authorId?: string;
 }
 
 /** 后台管理可编辑的元数据（含 null 表示清空） */
@@ -195,7 +193,6 @@ export class BookRepository {
     }
     if (filter.sourceId !== undefined) conditions.push(eq(book.sourceId, filter.sourceId));
     if (filter.origin !== undefined) conditions.push(eq(book.origin, filter.origin));
-    if (filter.authorId !== undefined) conditions.push(eq(book.authorId, filter.authorId));
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 
     const [totalRow] = await this.db.select({ value: count() }).from(book).where(where);

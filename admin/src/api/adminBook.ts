@@ -60,8 +60,6 @@ export interface AdminBookQuery {
   sourceId?: number
   /** 入库方式筛选 */
   origin?: BookOrigin
-  /** 归属作家账号筛选 */
-  authorId?: string
 }
 
 export interface AdminBookListResult {
@@ -117,7 +115,6 @@ export async function getAdminBooks(params: AdminBookQuery) {
       keyword: params.keyword || undefined,
       sourceId: params.sourceId || undefined,
       origin: params.origin || undefined,
-      authorId: params.authorId || undefined,
     },
   })
 }

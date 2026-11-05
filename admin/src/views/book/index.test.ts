@@ -60,7 +60,7 @@ vi.mock('@/api', () => ({
   deleteAdminBooks: vi.fn(),
   createAdminBook: vi.fn(),
   updateAdminBook: vi.fn(),
-  // 列表页会拉一次作家候选（归属下拉 / 筛选下拉共用）
+  // 列表页会为「新增/编辑」弹窗的归属作家下拉拉一次候选
   getAdminUsers: vi.fn().mockResolvedValue({
     list: [{ id: 'u1', name: '测试作家', email: 'a@b.c', emailVerified: false, image: null, roles: ['reader', 'author'], createdAt: '', updatedAt: '' }],
     total: 1,

@@ -65,9 +65,6 @@ const ORIGIN_TAG_TYPE: Record<BookOrigin, 'default' | 'info' | 'success'> = {
   author: 'success',
 }
 
-/** 归属作家筛选：'' = 全部（NSelect 的 clearable 会把值置 null，这里统一用空串语义） */
-const authorFilter = ref<string | null>(null)
-
 /**
  * 作家候选列表：只有持有 author 身份的账号才能被指派为书籍归属（后端也会校验）。
  *
@@ -124,7 +121,6 @@ const { data, isLoading, refetch } = useQuery({
     pagination.pageSize ?? 10,
     keyword.value,
     originFilter.value,
-    authorFilter.value,
   ],
   query: () =>
     getAdminBooks({
@@ -132,7 +128,6 @@ const { data, isLoading, refetch } = useQuery({
       pageSize: pagination.pageSize ?? 10,
       keyword: keyword.value,
       origin: originFilter.value ?? undefined,
-      authorId: authorFilter.value ?? undefined,
     }),
   staleTime: 0,
 })
@@ -343,8 +338,7 @@ function handleFormSuccess() {
  */
 function handleQuery() {
   const nextKeyword = keywordInput.value.trim()
-  const unchanged =
-    nextKeyword === keyword.value && authorFilter.value === null && (pagination.page ?? 1) === 1
+  const unchanged = nextKeyword === keyword.value && (pagination.page ?? 1) === 1
 
   pagination.page = 1
   keyword.value = nextKeyword
@@ -356,13 +350,11 @@ function handleReset() {
   const unchanged =
     keyword.value === '' &&
     originFilter.value === null &&
-    authorFilter.value === null &&
     (pagination.page ?? 1) === 1
 
   keywordInput.value = ''
   keyword.value = ''
   originFilter.value = null
-  authorFilter.value = null
   pagination.page = 1
 
   if (unchanged) refetch()
@@ -410,16 +402,6 @@ function handleBatchDelete() {
             clearable
             class="shrink-0"
             style="width: 150px"
-            @update:value="handleFilterChange"
-          />
-          <NSelect
-            v-model:value="authorFilter"
-            :options="authorOptions"
-            placeholder="全部作家"
-            clearable
-            filterable
-            class="shrink-0"
-            style="width: 180px"
             @update:value="handleFilterChange"
           />
           <NButton
