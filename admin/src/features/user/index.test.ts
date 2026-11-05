@@ -7,7 +7,7 @@ import { computed, defineComponent, h, provide } from 'vue'
 
 import { mediaQueryInjectionKey } from '@/injection'
 
-import UserPage from './index.vue'
+import UserPage from '@/views/user/index.vue'
 
 /**
  * 用户管理页的冒烟测试：确认「新增用户」按钮能把弹窗打开、且表单字段确实渲染出来。

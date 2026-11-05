@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { useQuery } from '@pinia/colada'
 import {
   NButton,
   NConfigProvider,
@@ -14,8 +13,9 @@ import {
 } from 'naive-ui'
 import { computed, ref, useTemplateRef, watch } from 'vue'
 
-import { createAdminChapter, getAdminChapter, updateAdminChapter } from '@/api'
+import { createAdminChapter, updateAdminChapter } from '@/api'
 import { useComponentThemeOverrides } from '@/composables'
+import { useChapterDetail } from '@/features/book/queries'
 import { getErrorMessage } from '@/utils/error'
 
 import type { FormInst, FormRules } from 'naive-ui'
@@ -59,12 +59,11 @@ const content = ref('')
 
 const isEdit = computed(() => props.action === 'update')
 
-const { data: detail, isLoading: detailLoading } = useQuery({
-  // key 里不能放 undefined（EntryKey 要求可序列化）：新增态用 0 占位，enabled 会挡住请求
-  key: () => ['adminChapter', props.bookId, props.chapterId ?? 0],
-  query: () => getAdminChapter(props.bookId, props.chapterId as number),
-  enabled: () => props.show && props.action === 'update' && props.chapterId != null,
-})
+const { data: detail, isLoading: detailLoading } = useChapterDetail(
+  () => props.bookId,
+  () => props.chapterId,
+  () => props.show && props.action === 'update' && props.chapterId != null,
+)
 
 /** 编辑态回填：详情到达后灌进表单（列表行没有正文，不能只用行数据回填） */
 function fillFromDetail(value: { title: string; index: number; url: string | null; content: string | null }) {

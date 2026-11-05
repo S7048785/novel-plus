@@ -1,5 +1,4 @@
 <script setup lang="tsx">
-import { useMutation, useQuery } from '@pinia/colada'
 import {
   NButton,
   NCard,
@@ -13,21 +12,20 @@ import {
 import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import {
-  deleteAdminChapter,
-  deleteAdminChapters,
-  getAdminBook,
-  getAdminChapters,
-} from '@/api'
 import { ScrollContainer } from '@/components'
 import { useComponentModifier, useInjection } from '@/composables'
+import ChapterFormModal from '@/features/book/components/ChapterFormModal.vue'
+import {
+  useBookDetail,
+  useChapterList,
+  useDeleteChapter,
+  useDeleteChapters,
+} from '@/features/book/queries'
 import { mediaQueryInjectionKey } from '@/injection'
 import { getErrorMessage } from '@/utils/error'
 import { formatDateTime } from '@/utils/format'
 
-import ChapterFormModal from './ChapterFormModal.vue'
-
-import type { AdminChapterSummary } from '@/api'
+import type { AdminChapterQuery, AdminChapterSummary } from '@/api'
 import type { DataTableColumns, PaginationProps } from 'naive-ui'
 
 /**
@@ -56,11 +54,7 @@ const { getPopconfirmModifier } = useComponentModifier()
 const bookId = computed(() => Number(route.params.bookId))
 
 /** 书名/归属等信息：列表头部要显示「在管哪本书」，避免进错书而不自知 */
-const { data: book } = useQuery({
-  key: () => ['adminBook', bookId.value],
-  query: () => getAdminBook(bookId.value),
-  enabled: () => Number.isFinite(bookId.value),
-})
+const { data: book } = useBookDetail(() => bookId.value)
 
 const checkedRowKeys = ref<Array<string | number>>([])
 
@@ -91,16 +85,15 @@ const pagination = reactive<PaginationProps>({
   },
 })
 
-const { data, isLoading, refetch } = useQuery({
-  key: () => ['adminChapters', bookId.value, pagination.page ?? 1, pagination.pageSize ?? 50],
-  query: () =>
-    getAdminChapters(bookId.value, {
-      page: pagination.page ?? 1,
-      pageSize: pagination.pageSize ?? 50,
-    }),
-  enabled: () => Number.isFinite(bookId.value),
-  staleTime: 0,
-})
+const listQuery = computed<AdminChapterQuery>(() => ({
+  page: pagination.page ?? 1,
+  pageSize: pagination.pageSize ?? 50,
+}))
+
+const { data, isLoading, refetch } = useChapterList(
+  () => bookId.value,
+  () => listQuery.value,
+)
 
 const chapterList = computed<AdminChapterSummary[]>(() => data.value?.list ?? [])
 
@@ -108,24 +101,24 @@ watch(data, (result) => {
   if (result) pagination.itemCount = result.total
 })
 
-const { isLoading: deleteLoading, mutate: mutateDeleteChapter } = useMutation({
-  mutation: (chapterId: number) => deleteAdminChapter(bookId.value, chapterId),
-  onSuccess: () => {
-    message.success('已删除')
-    refetch()
+const { isLoading: deleteLoading, mutate: mutateDeleteChapter } = useDeleteChapter(
+  () => bookId.value,
+  {
+    onSuccess: () => message.success('已删除'),
+    onError: (error) => message.error(getErrorMessage(error)),
   },
-  onError: (error) => message.error(getErrorMessage(error)),
-})
+)
 
-const { isLoading: batchDeleteLoading, mutate: mutateDeleteChapters } = useMutation({
-  mutation: (ids: number[]) => deleteAdminChapters(bookId.value, ids),
-  onSuccess: (result) => {
-    message.success(`已删除 ${result.deleted} 章`)
-    checkedRowKeys.value = []
-    refetch()
+const { isLoading: batchDeleteLoading, mutate: mutateDeleteChapters } = useDeleteChapters(
+  () => bookId.value,
+  {
+    onSuccess: (result) => {
+      message.success(`已删除 ${result.deleted} 章`)
+      checkedRowKeys.value = []
+    },
+    onError: (error) => message.error(getErrorMessage(error)),
   },
-  onError: (error) => message.error(getErrorMessage(error)),
-})
+)
 
 const mergedLoading = computed(
   () => isLoading.value || deleteLoading.value || batchDeleteLoading.value,

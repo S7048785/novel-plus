@@ -7,7 +7,7 @@ import { computed, defineComponent, h, provide } from 'vue'
 
 import { mediaQueryInjectionKey } from '@/injection'
 
-import BookPage from './index.vue'
+import BookPage from '@/views/book/index.vue'
 
 /**
  * 书籍管理页冒烟测试：确认列表渲染、点「新增书籍」能打开弹窗并渲染表单。

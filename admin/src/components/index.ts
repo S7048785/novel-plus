@@ -3,3 +3,5 @@ export * from './collapse-transition'
 export * from './empty-placeholder'
 export * from './hint-help'
 export * from './scroll-container'
+
+export { default as ListQueryBar } from './ListQueryBar.vue'

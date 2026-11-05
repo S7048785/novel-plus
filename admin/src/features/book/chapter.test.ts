@@ -7,7 +7,7 @@ import { computed, defineComponent, h, provide } from 'vue'
 
 import { mediaQueryInjectionKey } from '@/injection'
 
-import ChapterManage from './ChapterManage.vue'
+import ChapterManage from '@/features/book/pages/ChapterManage.vue'
 
 /**
  * 章节管理页冒烟测试：确认按路由里的 bookId 拉到书与章节、点「新增章节」能打开抽屉。

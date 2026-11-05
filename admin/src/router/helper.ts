@@ -92,7 +92,13 @@ export function resolveMenu(
 }
 
 export function resolveRoute(options: MenuMixedOptions[]) {
-  const modules = import.meta.glob('@/views/**/*.vue')
+  /**
+   * 路由组件有两个来源：
+   * - `views/**`：每个路由一个目录一个 index.vue（薄入口）；
+   * - `features/<模块>/pages/**`：模块自己的页面（如章节管理），其余组件不参与路由。
+   * 把 features 也纳入扫描，是为了让「模块代码集中在 features」与「views 只留入口」同时成立。
+   */
+  const modules = import.meta.glob(['@/views/**/*.vue', '@/features/**/pages/**/*.vue'])
 
   function buildRoutes(items: MenuMixedOptions[]): RouteRecordRaw[] {
     return items.flatMap((item) => {
@@ -116,8 +122,17 @@ export function resolveRoute(options: MenuMixedOptions[]) {
 
       if (!isEmpty(component) && isString(component)) {
         const extractName = component.replace(/^\/|\.vue$/g, '')
-        const modulePath = `/src/views/${extractName}.vue`
-        if (modules[modulePath]) {
+        /**
+         * 先找 views 下的入口，再落到 features/<模块>/pages/ 里。
+         * menu 里统一写 `book/ChapterManage`，不用关心文件实际在哪个目录。
+         */
+        const [scope, ...rest] = extractName.split('/')
+        const modulePath = [
+          `/src/views/${extractName}.vue`,
+          `/src/features/${scope}/pages/${rest.join('/')}.vue`,
+        ].find((path) => modules[path])
+
+        if (modulePath) {
           componentModule = modules[modulePath]
         }
       }
