@@ -5,6 +5,7 @@ import {
   NButton,
   NCard,
   NDataTable,
+  NEllipsis,
   NInput,
   NPagination,
   NPopconfirm,
@@ -202,7 +203,7 @@ const columns = computed<DataTableColumns<AdminUser>>(() => [
     title: '昵称',
     width: 220,
     render: (row) => (
-      <div class='flex items-center gap-x-2'>
+      <div class='flex min-w-0 items-center gap-x-2'>
         <NAvatar
           src={row.image ?? undefined}
           round
@@ -210,14 +211,20 @@ const columns = computed<DataTableColumns<AdminUser>>(() => [
         >
           {row.name.slice(0, 1)}
         </NAvatar>
-        <span class='truncate'>{row.name}</span>
+        <NEllipsis
+          class='min-w-0 flex-1'
+          tooltip
+        >
+          {row.name}
+        </NEllipsis>
       </div>
     ),
   },
   {
     key: 'email',
     title: '邮箱',
-    minWidth: 220,
+    width: 240,
+    ellipsis: { tooltip: true },
   },
   {
     key: 'roles',
@@ -348,13 +355,16 @@ function handleBatchDelete() {
       class="flex-1"
       content-class="flex flex-col"
     >
-      <div class="mb-2 flex justify-between gap-x-4 max-xl:mb-4 max-xl:flex-wrap">
+      <!-- 与书籍页一致：第一行查询条件、第二行操作按钮，避免左右互相覆盖 -->
+      <div class="mb-2 flex flex-col gap-y-2 max-xl:mb-4">
         <div class="flex flex-wrap items-center gap-2">
           <NInput
             v-model:value="keywordInput"
             placeholder="昵称或邮箱"
             clearable
-            class="w-56"
+            size="medium"
+            class="shrink-0"
+            style="width: 320px"
             @keyup.enter="handleQuery"
           />
           <NSelect
@@ -362,11 +372,14 @@ function handleBatchDelete() {
             :options="roleFilterOptions"
             placeholder="全部身份"
             clearable
-            class="w-32"
+            size="medium"
+            class="shrink-0"
+            style="width: 150px"
             @update:value="handleRoleFilterChange"
           />
           <NButton
             type="info"
+            size="medium"
             :loading="isLoading"
             :disabled="mergedLoading"
             @click="handleQuery"
@@ -378,6 +391,7 @@ function handleBatchDelete() {
           </NButton>
           <NButton
             type="warning"
+            size="medium"
             @click="handleReset"
           >
             <template #icon>
@@ -386,7 +400,7 @@ function handleBatchDelete() {
             重置
           </NButton>
         </div>
-        <div class="flex gap-2">
+        <div class="flex justify-end gap-2">
           <NPopconfirm
             v-bind="getPopconfirmModifier()"
             positive-text="确定"
@@ -397,6 +411,7 @@ function handleBatchDelete() {
               <NButton
                 type="error"
                 secondary
+                size="medium"
                 :disabled="checkedRowKeys.length === 0 || mergedLoading"
               >
                 <template #icon>
@@ -409,6 +424,7 @@ function handleBatchDelete() {
           </NPopconfirm>
           <NButton
             type="success"
+            size="medium"
             @click="openForm('create')"
           >
             <template #icon>
@@ -428,8 +444,7 @@ function handleBatchDelete() {
           :data="userList"
           :row-key="(row) => row.id"
           :loading="mergedLoading"
-          :single-line="false"
-          :scroll-x="1320"
+          :scroll-x="1400"
           class="flex-1"
         />
         <div class="mt-3 flex justify-end">

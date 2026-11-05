@@ -15,6 +15,18 @@ import BookPage from './index.vue'
  * 值得留一条的理由与用户管理页相同——弹窗是手写的表单组件，字段多、条件分支多（新增/编辑
  * 显示的字段不同），一条「能打开且关键字段在」的用例能挡住整块模板被改坏。
  */
+/**
+ * 列表页的「章节」按钮要用 useRouter 跳转，但没有 router 插件时 useRouter 会返回 undefined
+ * 并打出 injection 警告。只替换这两个 API，保留 createRouter 等真实实现（@/stores 间接依赖）。
+ */
+vi.mock('vue-router', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('vue-router')>()
+  return {
+    ...actual,
+    useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  }
+})
+
 vi.mock('@/api', () => ({
   BOOK_ORIGINS: ['crawl', 'author', 'manual'],
   BOOK_ORIGIN_LABELS: { crawl: '爬虫采集', author: '作家上传', manual: '手动导入' },

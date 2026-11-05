@@ -66,6 +66,24 @@ export const menu: MenuMixedOptions[] = [
     component: 'book/index',
   },
   {
+    /**
+     * 章节管理：路径带 bookId，只能从书籍列表的「章节」按钮进入，所以不进侧边栏。
+     * 但路由必须注册（show 只影响菜单渲染，resolveRoute 仍会建路由）：
+     * 否则手输 URL 落到 404，而不是「有权限但没入口」。
+     */
+    path: 'book/:bookId/chapter',
+    name: 'bookChapter',
+    icon: 'ph:list-numbers',
+    label: '章节管理',
+    show: false,
+    meta: {
+      componentName: 'BookChapter',
+      title: '章节管理',
+      roles: ['admin'],
+    },
+    component: 'book/ChapterManage',
+  },
+  {
     path: 'user',
     name: 'userList',
     icon: 'ph:users',

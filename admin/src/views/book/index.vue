@@ -5,6 +5,7 @@ import {
   NButton,
   NCard,
   NDataTable,
+  NEllipsis,
   NInput,
   NPagination,
   NPopconfirm,
@@ -13,6 +14,7 @@ import {
   useMessage,
 } from 'naive-ui'
 import { computed, reactive, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 
 import { BOOK_ORIGIN_LABELS, deleteAdminBook, deleteAdminBooks, getAdminBooks, getAdminUsers } from '@/api'
 import { ScrollContainer } from '@/components'
@@ -37,6 +39,8 @@ defineOptions({
 })
 
 const { isMaxMd, isMaxLg } = useInjection(mediaQueryInjectionKey)
+
+const router = useRouter()
 
 const message = useMessage()
 
@@ -171,9 +175,9 @@ const columns = computed<DataTableColumns<AdminBook>>(() => [
   {
     key: 'name',
     title: '书名',
-    minWidth: 240,
+    width: 260,
     render: (row) => (
-      <div class='flex items-center gap-x-2'>
+      <div class='flex min-w-0 items-center gap-x-2'>
         <NAvatar
           src={row.coverUrl ?? undefined}
           size={32}
@@ -182,7 +186,12 @@ const columns = computed<DataTableColumns<AdminBook>>(() => [
         >
           {row.name.slice(0, 1)}
         </NAvatar>
-        <span class='truncate'>{row.name}</span>
+        <NEllipsis
+          class='min-w-0 flex-1'
+          tooltip
+        >
+          {row.name}
+        </NEllipsis>
       </div>
     ),
   },
@@ -190,14 +199,21 @@ const columns = computed<DataTableColumns<AdminBook>>(() => [
     key: 'author',
     title: '作者',
     width: 130,
-    render: (row) => row.author ?? <span class='opacity-40'>—</span>,
+    render: (row) =>
+      row.author ? <NEllipsis tooltip>{row.author}</NEllipsis> : <span class='opacity-40'>—</span>,
   },
   {
     key: 'sourceName',
     title: '书源',
     width: 130,
     render: (row) =>
-      row.sourceName ?? <NTag bordered={false} size='small'>手动录入</NTag>,
+      row.sourceName ? (
+        <NEllipsis tooltip>{row.sourceName}</NEllipsis>
+      ) : (
+        <NTag bordered={false} size='small'>
+          手动录入
+        </NTag>
+      ),
   },
   {
     key: 'chapterCount',
@@ -217,7 +233,8 @@ const columns = computed<DataTableColumns<AdminBook>>(() => [
     key: 'wordCount',
     title: '字数',
     width: 100,
-    render: (row) => row.wordCount ?? <span class='opacity-40'>—</span>,
+    render: (row) =>
+      row.wordCount ? <NEllipsis tooltip>{row.wordCount}</NEllipsis> : <span class='opacity-40'>—</span>,
   },
   {
     key: 'origin',
@@ -235,7 +252,9 @@ const columns = computed<DataTableColumns<AdminBook>>(() => [
     title: '归属作家',
     width: 140,
     render: (row) =>
-      row.authorName ?? (
+      row.authorName ? (
+        <NEllipsis tooltip>{row.authorName}</NEllipsis>
+      ) : (
         <NTag bordered={false} size='small'>
           无主
         </NTag>
@@ -250,7 +269,7 @@ const columns = computed<DataTableColumns<AdminBook>>(() => [
   {
     key: 'actions',
     title: '操作',
-    width: 160,
+    width: 230,
     align: 'center',
     fixed: 'right',
     render: (row) => CellActions(row),
@@ -259,6 +278,13 @@ const columns = computed<DataTableColumns<AdminBook>>(() => [
 
 const CellActions = (row: AdminBook) => (
   <div class='flex justify-end gap-2'>
+    <NButton
+      secondary
+      size='small'
+      onClick={() => openChapters(row)}
+    >
+      章节
+    </NButton>
     <NButton
       secondary
       type='primary'
@@ -293,6 +319,11 @@ function openForm(action: 'create' | 'update', book?: AdminBook) {
   formModal.action = action
   formModal.book = book
   formModal.show = true
+}
+
+/** 章节是书的子资源，路由自带 bookId（见 router/menu.ts 的 bookChapter） */
+function openChapters(row: AdminBook) {
+  router.push({ name: 'bookChapter', params: { bookId: row.id } })
 }
 
 /** 新增的书按更新时间倒序排在前面，所以回到第一页；编辑后原地刷新即可 */
@@ -359,13 +390,17 @@ function handleBatchDelete() {
       class="flex-1"
       content-class="flex flex-col"
     >
-      <div class="mb-2 flex justify-between gap-x-4 max-xl:mb-4 max-xl:flex-wrap">
+      <!-- 工具条分两行：第一行查询条件、第二行操作按钮。
+           之前挤在一行时，右侧按钮会把左侧条件挤到换行甚至互相覆盖；
+           宽度用内联 px + shrink-0（工具类会被 naive-ui 未分层样式压掉，只能靠 !important） -->
+      <div class="mb-2 flex flex-col gap-y-2 max-xl:mb-4">
         <div class="flex flex-wrap items-center gap-2">
           <NInput
             v-model:value="keywordInput"
             placeholder="书名或作者"
             clearable
-            class="w-56"
+            class="shrink-0"
+            style="width: 300px"
             @keyup.enter="handleQuery"
           />
           <NSelect
@@ -373,7 +408,8 @@ function handleBatchDelete() {
             :options="originFilterOptions"
             placeholder="全部来源"
             clearable
-            class="w-36"
+            class="shrink-0"
+            style="width: 150px"
             @update:value="handleFilterChange"
           />
           <NSelect
@@ -382,7 +418,8 @@ function handleBatchDelete() {
             placeholder="全部作家"
             clearable
             filterable
-            class="w-44"
+            class="shrink-0"
+            style="width: 180px"
             @update:value="handleFilterChange"
           />
           <NButton
@@ -406,7 +443,7 @@ function handleBatchDelete() {
             重置
           </NButton>
         </div>
-        <div class="flex gap-2">
+        <div class="flex justify-end gap-2">
           <NPopconfirm
             v-bind="getPopconfirmModifier()"
             positive-text="确定"
@@ -450,8 +487,7 @@ function handleBatchDelete() {
           :data="bookList"
           :row-key="(row) => row.id"
           :loading="mergedLoading"
-          :single-line="false"
-          :scroll-x="1420"
+          :scroll-x="1490"
           class="flex-1"
         />
         <div class="mt-3 flex justify-end">

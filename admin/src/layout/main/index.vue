@@ -42,6 +42,11 @@ const tabTitleResolvers: Record<string, (params: RouteParamsGeneric) => string> 
   dynamicRoute: ({ id, name }) => {
     return `动态路由${id ? `-${id}` : ''}${name ? `-${name}` : ''}`
   },
+  /**
+   * 章节管理是按书开的多个标签（路径含 bookId），标题带上书 id：
+   * 否则同时开着几本书的章节页时，标签栏里全是「章节管理」，分不清点哪个。
+   */
+  bookChapter: ({ bookId }) => `章节管理 #${bookId}`,
 }
 
 function createTabFromRoute(route: RouteLocationNormalizedLoaded) {
