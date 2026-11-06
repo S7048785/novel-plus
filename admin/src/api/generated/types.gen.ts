@@ -200,8 +200,6 @@ export type BooksourceCreateData = {
     body: {
         bookSourceName: string;
         bookSourceUrl: string;
-        bookSourceGroup?: string;
-        bookSourceType?: number;
         charset?: string;
         enabled?: boolean;
         [key: string]: unknown;
@@ -253,13 +251,11 @@ export type BooksourceGetResponses = {
     200: {
         id?: number;
         bookSourceName: string;
-        bookSourceGroup?: string;
         bookSourceUrl: string;
-        bookSourceType?: number;
         enabled?: boolean;
         enabledExplore?: boolean;
         /**
-         * 站点编码，默认 utf-8
+         * 站点编码，默认 utf-8；gbk 站点必填，否则正文与搜索关键词都会乱码
          */
         charset?: string;
         jsLib?: string;
@@ -345,8 +341,6 @@ export type BooksourcePatchData = {
     body: {
         bookSourceName?: string;
         bookSourceUrl?: string;
-        bookSourceGroup?: string;
-        bookSourceType?: number;
         charset?: string;
         enabled?: boolean;
         [key: string]: unknown;
@@ -370,8 +364,6 @@ export type BooksourceReplaceData = {
     body: {
         bookSourceName: string;
         bookSourceUrl: string;
-        bookSourceGroup?: string;
-        bookSourceType?: number;
         charset?: string;
         enabled?: boolean;
         [key: string]: unknown;
@@ -568,13 +560,9 @@ export type BookCreateData = {
         sourceId?: number | null;
         tocUrl?: string | null;
         origin?: 'crawl' | 'author' | 'manual';
-        authorId?: string | null;
         author?: string | null;
         coverUrl?: string | null;
         intro?: string | null;
-        wordCount?: string | null;
-        latestChapterTitle?: string | null;
-        totalChapterNum?: number | null;
     };
     path?: never;
     query?: never;
@@ -672,13 +660,9 @@ export type BookPatchData = {
     body: {
         name?: string;
         origin?: 'crawl' | 'author' | 'manual';
-        authorId?: string | null;
         author?: string | null;
         coverUrl?: string | null;
         intro?: string | null;
-        wordCount?: string | null;
-        latestChapterTitle?: string | null;
-        totalChapterNum?: number | null;
     };
     path: {
         id: number;
@@ -699,13 +683,9 @@ export type BookReplaceData = {
     body: {
         name: string;
         origin?: 'crawl' | 'author' | 'manual';
-        authorId?: string | null;
         author?: string | null;
         coverUrl?: string | null;
         intro?: string | null;
-        wordCount?: string | null;
-        latestChapterTitle?: string | null;
-        totalChapterNum?: number | null;
     };
     path: {
         id: number;
