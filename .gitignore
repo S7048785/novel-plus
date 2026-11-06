@@ -16,3 +16,10 @@ Thumbs.db
 # 编辑器：.idea 整目录忽略（子包规则一致）；.vscode 不整体忽略，
 # 因为子包规则里特意放行了 settings.json / extensions.json，将来根目录也可能要共享
 /.idea/
+
+# 测试代码：只在本地跑，不进仓库（2026-11-06 起的约定）。
+# 覆盖 *.test.ts、*.spec.ts、*.e2e-spec.ts；vitest 配置文件不在此列，本地测试照常可跑。
+# 注意：type-check 仍会检查磁盘上的测试文件，测试坏了一样能发现。
+**/*.test.ts
+**/*.spec.ts
+**/*.e2e-spec.ts
