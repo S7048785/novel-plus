@@ -1,8 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { BookRepository, type BookMetadataPatch as RepoMetadataPatch, type BookSummary } from '../../../common/repo/book.repo.js';
 import { CrawlSourceRepository } from '../../../common/repo/crawl-source.repo.js';
-import { UserRepository } from '../../../common/repo/user.repo.js';
-import { UserRoleRepository } from '../../../common/repo/user-role.repo.js';
 import { DEFAULT_BOOK_ORIGIN } from '../../../common/book/origin.js';
 import type { BookMetadataInput, BookMetadataPatch, CreateBookInput } from '@novel-plus/shared/dto';
 import type { ListBookQuery } from '../dto/book.query.schema.js';
@@ -21,17 +19,18 @@ export interface BookListResult {
  * 这里只做已入库书籍的管理，不触发任何抓取。
  *
  * 两个描述「书从哪来 / 归谁」的字段，容易混，一次说清：
- * - origin：**入库方式**（crawl / author / manual），系统能自己判定的渠道；
- * - author_id：**归属作家账号**（user.id），null 表示无主。
- *   采集来的书只有 origin=crawl、没有归属；作家上传的书两者都有。
+ * - origin：**入库方式**（crawl / author / manual），后台可以改，是请求体的一部分；
+ * - author_id：**归属作家账号**（user.id），null 表示无主。后台接口不接收它——
+ *   归属应由作家端按当前登录账号写入（作家端尚未上线），管理员手填既没有依据也不安全。
+ *
+ * 同理，字数 / 最新章节 / 总章数是采集与章节同步的产物，只由 CrawlService 写，
+ * 后台的请求体不接收、PUT 也不会清空它们。
  */
 @Injectable()
 export class BookService {
   constructor(
     private readonly repo: BookRepository,
     private readonly sourceRepo: CrawlSourceRepository,
-    private readonly userRepo: UserRepository,
-    private readonly roleRepo: UserRoleRepository,
   ) {}
 
   async list(query: ListBookQuery): Promise<BookListResult> {
@@ -68,8 +67,6 @@ export class BookService {
       }
     }
 
-    if (input.authorId != null) await this.assertAuthor(input.authorId);
-
     const id = await this.repo.insert({
       name: input.name,
       author: input.author ?? null,
@@ -78,33 +75,26 @@ export class BookService {
       coverUrl: input.coverUrl ?? undefined,
       tocUrl: input.tocUrl ?? undefined,
       intro: input.intro ?? undefined,
-      wordCount: input.wordCount ?? undefined,
-      latestChapterTitle: input.latestChapterTitle ?? undefined,
-      totalChapterNum: input.totalChapterNum ?? null,
       origin: input.origin ?? DEFAULT_BOOK_ORIGIN,
-      authorId: input.authorId ?? null,
     });
     return { id };
   }
 
-  /** 全量覆盖元数据（PUT）：未传的元数据字段会被置 null；origin / authorId 不传则保持原值 */
+  /**
+   * 全量覆盖元数据（PUT）：未传的 author / coverUrl / intro 置 null；origin 不传则保持原值。
+   *
+   * 采集统计值与归属不在这里出现，updateMetadata 只 set 传入的键，因此不会被这次保存清空。
+   */
   async replace(id: number, input: BookMetadataInput): Promise<{ id: number }> {
     const current = await this.get(id);
-
-    if (input.authorId != null) await this.assertAuthor(input.authorId);
 
     await this.repo.updateMetadata(id, {
       name: input.name,
       author: input.author ?? null,
       coverUrl: input.coverUrl ?? null,
       intro: input.intro ?? null,
-      wordCount: input.wordCount ?? null,
-      latestChapterTitle: input.latestChapterTitle ?? null,
-      totalChapterNum: input.totalChapterNum ?? null,
       // origin 描述「书怎么来的」，不跟着「未传即置空」走，避免一次保存把渠道改成默认值
       origin: input.origin ?? current.origin,
-      // 归属同理：不传 = 不改；要清空归属得显式传 null
-      authorId: input.authorId === undefined ? current.authorId : input.authorId,
     });
     return { id };
   }
@@ -113,7 +103,6 @@ export class BookService {
   async patch(id: number, patch: BookMetadataPatch): Promise<{ id: number }> {
     const repoPatch: RepoMetadataPatch = { ...patch };
     await this.get(id); // 不存在直接 404，避免 update 静默命中 0 行
-    if (patch.authorId != null) await this.assertAuthor(patch.authorId);
     await this.repo.updateMetadata(id, repoPatch);
     return { id };
   }
@@ -131,19 +120,4 @@ export class BookService {
     return { deleted, ids };
   }
 
-  /**
-   * 校验归属账号可用：必须存在，且持有 author 身份。
-   *
-   * 为什么要查身份而不是只查存在：把书指派给一个纯读者账号，对方既进不了后台也调不了接口，
-   * 这本书就成了「有主但谁也管不了」——比无主更糟，属于静默的数据错误。
-   */
-  private async assertAuthor(authorId: string): Promise<void> {
-    const existed = await this.userRepo.findById(authorId);
-    if (!existed) throw new BadRequestException(`账号 ${authorId} 不存在`);
-
-    const isAuthor = await this.roleRepo.hasRole(authorId, 'author');
-    if (!isAuthor) {
-      throw new BadRequestException(`账号 ${existed.name} 不是作家（缺少 author 身份），不能作为书籍归属`);
-    }
-  }
 }

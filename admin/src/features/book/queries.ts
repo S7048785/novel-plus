@@ -9,7 +9,6 @@ import {
   getAdminBooks,
   getAdminChapter,
   getAdminChapters,
-  getAdminUsers,
 } from '@/api'
 
 import type { AdminBookQuery, AdminChapterQuery } from '@/api'
@@ -37,14 +36,12 @@ const BOOK_LIST = 'adminBooks'
 const BOOK_DETAIL = 'adminBook'
 const CHAPTER_LIST = 'adminChapters'
 const CHAPTER_DETAIL = 'adminChapter'
-const AUTHOR_CANDIDATES = 'authorCandidates'
 
 export const bookKeys = {
   listAll: [BOOK_LIST] as const,
   list: (query: AdminBookQuery) =>
     [BOOK_LIST, query.page, query.pageSize, query.keyword ?? '', query.origin ?? null] as const,
   detail: (id: number) => [BOOK_DETAIL, id] as const,
-  authorCandidates: [AUTHOR_CANDIDATES] as const,
   chapterListAll: [CHAPTER_LIST] as const,
   chapterList: (bookId: number, query: AdminChapterQuery) =>
     [CHAPTER_LIST, bookId, query.page, query.pageSize] as const,
@@ -73,21 +70,6 @@ export function useBookDetail(bookId: () => number) {
     key: () => bookKeys.detail(bookId()),
     query: () => getAdminBook(bookId()),
     enabled: () => Number.isFinite(bookId()),
-  })
-}
-
-/**
- * 作家候选（归属下拉用）。
- *
- * 只有持有 author 身份的账号才能被指派为书籍归属（后端也会校验）。
- * pageSize 取后端上限 100——作家数量级远小于它，一次拉完比做远程搜索简单得多；
- * 真到几百个作家时再改成 NSelect 的远程过滤（remote + filterable）。
- */
-export function useAuthorCandidates() {
-  return useQuery({
-    key: () => bookKeys.authorCandidates,
-    query: () => getAdminUsers({ page: 1, pageSize: 100, role: 'author' }),
-    staleTime: 60_000,
   })
 }
 

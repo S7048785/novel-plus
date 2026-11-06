@@ -8,7 +8,6 @@ import {
   NForm,
   NFormItem,
   NInput,
-  NInputNumber,
   NSelect,
   NSpin,
   useMessage,
@@ -25,12 +24,15 @@ import type { FormInst, FormRules } from 'naive-ui'
 /**
  * 新增 / 编辑书籍抽屉（右侧滑出，长表单在内容区内部滚动）。
  *
- * 字段范围严格对齐后端 DTO（server/src/admin/book/dto/book.payload.schema.ts）：
- * - 新增可以带 bookUrl / tocUrl——它们回答「这本书来自哪里」，只有建书时能定；
- * - 编辑只能改元数据（书名、作者、封面、简介、字数、最新章节、总章数），后端 PATCH 不接其余字段，
- *   所以编辑态把来源信息做成只读展示，而不是给一个「填了也存不进去」的输入框；
- * - 归属作家（authorId）：下拉候选由父组件传入（只有持有 author 身份的账号），
- *   清空下拉 = 提交 null = 把书变回无主。编辑打开时不动它，提交原值，归属不会被误清。
+ * 表单只留「人能负责任地填」的字段：书名、作者、封面、简介、入库方式，
+ * 以及只有新建时能定的源站地址 / 目录页（它们回答「这本书来自哪里」，建书后不可改，
+ * 所以编辑态改成只读展示，而不是给一个填了也存不进去的输入框）。
+ *
+ * 字数、最新章节、总章数是采集与章节同步写出来的统计值，归属作家（authorId）是作家端
+ * 预留的归属关系，都不该由后台手填。编辑保存走 PATCH（不传 = 不改，传 null = 清空），
+ * 因此这四个字段从表单与提交体里一起移除**不会**把库里已有的值抹掉——这与 PUT 的
+ * 「未传即置 null」是相反的语义。它们仍由采集写入、在列表里展示；
+ * 后端只把这四项从 create / PUT / PATCH 的请求体里拿掉，响应体与数据库列不变。
  *
  * 每个字段一个顶层 ref，而不是一个 reactive 对象：模板里访问 reactive 的成员会让 vue-tsc
  * 误判成 ref 并插入 `.value`（本文件实测报 TS2339），顶层 ref 的模板绑定则是标准写法。
@@ -40,8 +42,6 @@ const props = defineProps<{
   show: boolean
   action: 'create' | 'update'
   book?: AdminBook
-  /** 作家候选（父组件统一拉取，抽屉不重复请求） */
-  authorOptions?: Array<{ label: string; value: string }>
 }>()
 
 const emits = defineEmits<{
@@ -63,13 +63,8 @@ const bookUrl = ref('')
 const tocUrl = ref('')
 const coverUrl = ref('')
 const intro = ref('')
-const wordCount = ref('')
-const latestChapterTitle = ref('')
-const totalChapterNum = ref<number | null>(null)
 /** 入库方式：新建默认「手动导入」（从后台手填进来的就是这种） */
 const origin = ref<BookOrigin>('manual')
-/** 归属作家账号；null = 无主 */
-const authorId = ref<string | null>(null)
 
 const originOptions = BOOK_ORIGINS.map((value) => ({ label: BOOK_ORIGIN_LABELS[value], value }))
 
@@ -81,11 +76,7 @@ const formModel = computed(() => ({
   tocUrl: tocUrl.value,
   coverUrl: coverUrl.value,
   intro: intro.value,
-  wordCount: wordCount.value,
-  latestChapterTitle: latestChapterTitle.value,
-  totalChapterNum: totalChapterNum.value,
   origin: origin.value,
-  authorId: authorId.value,
 }))
 
 const isEdit = computed(() => props.action === 'update')
@@ -100,8 +91,6 @@ const rules: FormRules = {
   bookUrl: [{ max: 512, message: '地址最多 512 字符', trigger: ['input', 'blur'] }],
   tocUrl: [{ max: 512, message: '地址最多 512 字符', trigger: ['input', 'blur'] }],
   coverUrl: [{ max: 512, message: '封面地址最多 512 字符', trigger: ['input', 'blur'] }],
-  wordCount: [{ max: 64, message: '字数最多 64 字符', trigger: ['input', 'blur'] }],
-  latestChapterTitle: [{ max: 255, message: '章节名最多 255 字符', trigger: ['input', 'blur'] }],
 }
 
 /** 清空成「新建」的初始值；重置按钮与 watch 共用，保证两处一致 */
@@ -112,11 +101,7 @@ function fillEmpty() {
   tocUrl.value = ''
   coverUrl.value = ''
   intro.value = ''
-  wordCount.value = ''
-  latestChapterTitle.value = ''
-  totalChapterNum.value = null
   origin.value = 'manual'
-  authorId.value = null
 }
 
 watch(
@@ -133,11 +118,7 @@ watch(
     tocUrl.value = book.tocUrl ?? ''
     coverUrl.value = book.coverUrl ?? ''
     intro.value = book.intro ?? ''
-    wordCount.value = book.wordCount ?? ''
-    latestChapterTitle.value = book.latestChapterTitle ?? ''
-    totalChapterNum.value = book.totalChapterNum
     origin.value = book.origin
-    authorId.value = book.authorId
   },
   { immediate: true },
 )
@@ -176,17 +157,13 @@ async function handleSubmitClick() {
   submitting.value = true
   try {
     if (isEdit.value && props.book) {
+      // PATCH：没列在这里的字段（字数、章节统计、归属作家）不传，后端保持原值
       await updateAdminBook(props.book.id, {
         name: name.value.trim(),
         author: textOrNull(author.value),
         coverUrl: textOrNull(coverUrl.value),
         intro: textOrNull(intro.value),
-        wordCount: textOrNull(wordCount.value),
-        latestChapterTitle: textOrNull(latestChapterTitle.value),
-        totalChapterNum: totalChapterNum.value,
         origin: origin.value,
-        // 始终传：没动过就是原值（无副作用），清空下拉传 null = 显式取消归属
-        authorId: authorId.value,
       })
       message.success('已保存')
     } else {
@@ -197,11 +174,7 @@ async function handleSubmitClick() {
         tocUrl: textOrNull(tocUrl.value),
         coverUrl: textOrNull(coverUrl.value),
         intro: textOrNull(intro.value),
-        wordCount: textOrNull(wordCount.value),
-        latestChapterTitle: textOrNull(latestChapterTitle.value),
-        totalChapterNum: totalChapterNum.value,
         origin: origin.value,
-        authorId: authorId.value,
       })
       message.success('已创建')
     }
@@ -290,19 +263,6 @@ async function handleSubmitClick() {
             />
           </NFormItem>
           <NFormItem
-            label="归属作家"
-            path="authorId"
-          >
-            <NSelect
-              v-model:value="authorId"
-              :options="authorOptions ?? []"
-              placeholder="选择作家账号，可留空（无主）"
-              clearable
-              filterable
-              class="w-full"
-            />
-          </NFormItem>
-          <NFormItem
             v-if="isEdit"
             label="书源"
           >
@@ -343,38 +303,6 @@ async function handleSubmitClick() {
               type="textarea"
               placeholder="可留空"
               :autosize="{ minRows: 3, maxRows: 6 }"
-            />
-          </NFormItem>
-          <NFormItem
-            label="字数"
-            path="wordCount"
-          >
-            <NInput
-              v-model:value="wordCount"
-              placeholder="源站展示的字数，如 25.9 万"
-              clearable
-            />
-          </NFormItem>
-          <NFormItem
-            label="最新章节"
-            path="latestChapterTitle"
-          >
-            <NInput
-              v-model:value="latestChapterTitle"
-              placeholder="可留空"
-              clearable
-            />
-          </NFormItem>
-          <NFormItem
-            label="总章数"
-            path="totalChapterNum"
-          >
-            <NInputNumber
-              v-model:value="totalChapterNum"
-              :min="0"
-              :precision="0"
-              placeholder="源站标称的总章数，可留空"
-              class="w-full"
             />
           </NFormItem>
         </NForm>

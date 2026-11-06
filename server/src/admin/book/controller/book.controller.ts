@@ -61,7 +61,10 @@ export class BookController {
     return this.service.create(body);
   }
 
-  /** 全量覆盖元数据（PUT）——未传的元数据字段会被置 null，只想改个别字段用 PATCH */
+  /**
+   * 全量覆盖元数据（PUT）——未传的 author / coverUrl / intro 会被置 null，只想改个别字段用 PATCH。
+   * 采集统计值与归属不在请求体内，PUT 不会触碰这些列。
+   */
   @Put(':id')
   @ApiZodOk(idResponseSchema)
   replace(
@@ -71,7 +74,7 @@ export class BookController {
     return this.service.replace(params.id, body);
   }
 
-  /** 部分更新元数据（PATCH）——只改传入字段，传 null 表示清空 */
+  /** 部分更新元数据（PATCH）——只改传入字段，传 null 表示清空；统计值与归属不可通过此接口修改 */
   @Patch(':id')
   @ApiZodOk(idResponseSchema)
   patch(

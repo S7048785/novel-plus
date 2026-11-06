@@ -10,7 +10,6 @@ import BookTable from '@/features/book/components/BookTable.vue'
 import { useBookQuery } from '@/features/book/composables/useBookQuery'
 import { useBookSelection } from '@/features/book/composables/useBookSelection'
 import { ORIGIN_FILTER_OPTIONS } from '@/features/book/constants'
-import { useAuthorCandidates } from '@/features/book/queries'
 import { mediaQueryInjectionKey } from '@/injection'
 
 import type { AdminBook } from '@/api'
@@ -53,16 +52,6 @@ const { checkedRowKeys, hasSelection, loading: deleting, mutateDeleteBook, handl
 
 /** 列表请求与删除请求任意一个在跑，就禁用交互：避免并发覆盖结果 */
 const mergedLoading = computed(() => isLoading.value || deleting.value)
-
-/** 作家候选：归属下拉用（弹窗内渲染，所以在这里取一次传下去，避免弹窗自己再请求） */
-const { data: authorData } = useAuthorCandidates()
-
-const authorOptions = computed(() =>
-  (authorData.value?.list ?? []).map((user) => ({
-    label: user.name,
-    value: user.id,
-  })),
-)
 
 /** 弹窗状态：显隐与「编辑哪本书」放一起，避免两者不同步 */
 const formModal = reactive<{
@@ -170,7 +159,6 @@ function handleFormSuccess() {
       v-model:show="formModal.show"
       :action="formModal.action"
       :book="formModal.book"
-      :author-options="authorOptions"
       @success="handleFormSuccess"
     />
   </ScrollContainer>

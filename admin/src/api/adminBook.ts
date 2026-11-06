@@ -47,7 +47,10 @@ export interface AdminBookQuery {
  */
 export type CreateAdminBookParams = CreateBookInput
 
-/** 编辑可改的字段（PATCH 语义：不传不改，传 null 清空） */
+/**
+ * 编辑可改的字段（PATCH 语义：不传不改，传 null 清空）。
+ * 字数 / 最新章节 / 总章数 / 归属作家不在请求体内，它们由采集或作家端维护。
+ */
 export type UpdateAdminBookParams = BookMetadataPatch
 
 export async function getAdminBooks(params: AdminBookQuery) {
