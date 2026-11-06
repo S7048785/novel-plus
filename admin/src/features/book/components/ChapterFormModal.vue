@@ -169,6 +169,7 @@ async function handleSubmitClick() {
     >
       <NDrawerContent
         :title="isEdit ? '编辑章节' : '新增章节'"
+        :native-scrollbar="false"
         closable
       >
         <NSpin :show="submitting || detailLoading">

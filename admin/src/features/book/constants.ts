@@ -25,9 +25,11 @@ export const ORIGIN_FILTER_OPTIONS = (Object.keys(BOOK_ORIGIN_LABELS) as BookOri
 )
 
 /**
- * 表格横向滚动宽度 = 各列宽之和（selection 列 + 8 个数据列 + 230 的操作列）。
+ * 表格横向滚动宽度 = 各列宽之和（selection 列 + 8 个数据列 + 170 的操作列）。
  *
  * 有固定列（操作列 `fixed: 'right'`）时，naive-ui 必须知道表格总宽度才会启用横向滚动；
  * 不给或给小了，列会被压扁换行而不是出现滚动条。改列宽时记得同步这里。
+ *
+ * 操作列从 230 收到 170 是因为「编辑」按钮移到了首列（点书名进编辑）。
  */
-export const TABLE_SCROLL_X = 1490
+export const TABLE_SCROLL_X = 1430

@@ -19,7 +19,7 @@ enableAutoUnmount(afterEach)
  * 表格是这次拆分的最高风险项，因为它同时依赖三件容易在重构中丢掉的事：
  * 1. `scroll-x` 必须等于列宽之和（少了固定列就不会横向滚动，只会压扁换行）；
  * 2. `checked-row-keys` 是受控双向绑定，漏一边就会出现「勾了但父级不知道」；
- * 3. 操作列三个按钮各自 emit 什么事件（父级靠这个做跳转/弹窗/删除）。
+ * 3. 首列与操作列各自 emit 什么事件（父级靠这个做跳转/弹窗/删除）。
  */
 const row: AdminBook = {
   id: 7,
@@ -69,8 +69,8 @@ describe('BookTable', () => {
     const wrapper = mountTable()
     const table = wrapper.findComponent(NDataTable)
 
-    // 1490 = selection + 8 个数据列 + 230 的操作列，改了列宽必须同步 constants.ts
-    expect(table.props('scrollX')).toBe(1490)
+    // 1430 = selection + 8 个数据列 + 170 的操作列，改了列宽必须同步 constants.ts
+    expect(table.props('scrollX')).toBe(1430)
     expect(table.props('remote')).toBe(true)
     expect(table.props('flexHeight')).toBe(true)
     expect(table.props('data')).toHaveLength(1)
@@ -98,17 +98,23 @@ describe('BookTable', () => {
     expect(wrapper.emitted('update:checkedRowKeys')?.[0]).toEqual([[7]])
   })
 
-  it('操作列三个按钮各自抛事件，删除走确认后触发', async () => {
+  it('点书名抛 edit；操作列只剩章节与删除', async () => {
     const wrapper = mountTable()
 
-    const findButton = (text: string) =>
-      wrapper.findAll('button').find((button) => button.text().includes(text))!
+    const buttons = wrapper.findAll('button').map((button) => button.text())
+    expect(buttons).toContain('章节')
+    expect(buttons).toContain('删除')
+    // 「编辑」按钮已移除，编辑入口是首列；写在这里是为了防止重构时又加回去
+    expect(buttons).not.toContain('编辑')
 
-    await findButton('章节').trigger('click')
-    expect(wrapper.emitted('chapters')?.[0]?.[0]).toMatchObject({ id: 7 })
-
-    await findButton('编辑').trigger('click')
+    // 首列点书名 → edit（title 属性带完整书名，也能当 tooltip）
+    const nameCell = wrapper.find('span[title="测试书籍"]')
+    expect(nameCell.exists()).toBe(true)
+    await nameCell.trigger('click')
     expect(wrapper.emitted('edit')?.[0]?.[0]).toMatchObject({ id: 7 })
+
+    await wrapper.findAll('button').find((button) => button.text().includes('章节'))!.trigger('click')
+    expect(wrapper.emitted('chapters')?.[0]?.[0]).toMatchObject({ id: 7 })
 
     // 删除按钮包在 NPopconfirm 里，确认后才 emit（直接调它的 onPositiveClick，
     // 比点 DOM 更稳：弹出层是懒渲染的，类名也随主题变）

@@ -27,7 +27,9 @@ export const ROLE_TAG_TYPE: Record<UserRole, 'default' | 'info' | 'warning'> = {
 }
 
 /**
- * 表格横向滚动宽度 = 各列宽之和（selection 列 + 6 个数据列 + 160 的操作列）。
+ * 表格横向滚动宽度 = 各列宽之和（selection 列 + 6 个数据列 + 100 的操作列）。
  * 与书籍页同理：有 `fixed: 'right'` 的操作列时，这个值给小了会压扁换行而不是横向滚动。
+ *
+ * 操作列从 160 收到 100 是因为「编辑」按钮移到了首列（点昵称进编辑），只剩一个删除按钮。
  */
-export const TABLE_SCROLL_X = 1400
+export const TABLE_SCROLL_X = 1340

@@ -73,7 +73,7 @@ describe('UserTable', () => {
     const wrapper = mountTable()
     const table = wrapper.findComponent(NDataTable)
 
-    expect(table.props('scrollX')).toBe(1400)
+    expect(table.props('scrollX')).toBe(1340)
     expect(table.props('remote')).toBe(true)
     expect(table.props('flexHeight')).toBe(true)
     expect(table.props('data')).toHaveLength(2)
@@ -114,14 +114,16 @@ describe('UserTable', () => {
     expect(wrapper.emitted('update:checkedRowKeys')?.[0]).toEqual([['u-other']])
   })
 
-  it('操作列抛 edit 事件；删除经确认后抛 delete', async () => {
+  it('点昵称抛 edit；操作列只剩删除，删除经确认后抛 delete', async () => {
     const wrapper = mountTable('u-self')
 
-    const editButton = wrapper
-      .findAll('tbody tr')[1]!
-      .findAll('button')
-      .find((button) => button.text().includes('编辑'))!
-    await editButton.trigger('click')
+    // 「编辑」按钮已移除，编辑入口是首列；写在这里是为了防止重构时又加回去
+    const buttons = wrapper.findAll('button').map((button) => button.text())
+    expect(buttons).not.toContain('编辑')
+
+    const nameCell = wrapper.findAll('tbody tr')[1]!.find('span[title="另一个作家"]')
+    expect(nameCell.exists()).toBe(true)
+    await nameCell.trigger('click')
     expect(wrapper.emitted('edit')?.[0]?.[0]).toMatchObject({ id: 'u-other' })
 
     await deleteButtonOf(wrapper, 1)!.trigger('click')

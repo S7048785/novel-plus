@@ -61,6 +61,12 @@ const columns = computed<DataTableColumns<AdminBook>>(() => [
     key: 'name',
     title: '书名',
     width: 260,
+    /**
+     * 首列就是编辑入口：点书名直接打开编辑抽屉（与书源、用户表格保持一致）。
+     *
+     * 不用 NButton text：它内部是 inline-flex 容器，嵌进固定宽度单元格后 truncate 不生效，
+     * 长书名会撑破列。span + min-w-0 flex-1 直接吃剩余宽度，配合 title 给原生 tooltip。
+     */
     render: (row) => (
       <div class='flex min-w-0 items-center gap-x-2'>
         <NAvatar
@@ -71,12 +77,13 @@ const columns = computed<DataTableColumns<AdminBook>>(() => [
         >
           {row.name.slice(0, 1)}
         </NAvatar>
-        <NEllipsis
-          class='min-w-0 flex-1'
-          tooltip
+        <span
+          class='min-w-0 flex-1 cursor-pointer truncate transition-[color] hover:text-primary hover:underline'
+          title={row.name}
+          onClick={() => emit('edit', row)}
         >
           {row.name}
-        </NEllipsis>
+        </span>
       </div>
     ),
   },
@@ -154,7 +161,7 @@ const columns = computed<DataTableColumns<AdminBook>>(() => [
   {
     key: 'actions',
     title: '操作',
-    width: 230,
+    width: 170,
     align: 'center',
     fixed: 'right',
     render: (row) => cellActions(row),
@@ -162,9 +169,9 @@ const columns = computed<DataTableColumns<AdminBook>>(() => [
 ])
 
 /**
- * 操作列。
+ * 操作列只有「章节」和「删除」：编辑入口移到了首列（点书名）。
  *
- * 用普通函数而不是内联 JSX：三个按钮都要 emit，写在 columns 的 render 里会让 computed 每次求值
+ * 用普通函数而不是内联 JSX：两个按钮都要 emit，写在 columns 的 render 里会让 computed 每次求值
  * 都重建一遍整棵子树，肉眼看不出来但会拖慢大表格的重渲染。
  */
 const cellActions = (row: AdminBook) => (
@@ -175,14 +182,6 @@ const cellActions = (row: AdminBook) => (
       onClick={() => emit('chapters', row)}
     >
       章节
-    </NButton>
-    <NButton
-      secondary
-      type='primary'
-      size='small'
-      onClick={() => emit('edit', row)}
-    >
-      编辑
     </NButton>
     <NPopconfirm
       {...getPopconfirmModifier()}

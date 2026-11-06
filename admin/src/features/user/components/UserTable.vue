@@ -3,7 +3,6 @@ import {
   NAvatar,
   NButton,
   NDataTable,
-  NEllipsis,
   NPagination,
   NPopconfirm,
   NTag,
@@ -53,18 +52,15 @@ const rowKey = (row: AdminUser) => row.id
 
 const isSelf = (row: AdminUser) => row.id === props.selfId
 
+/**
+ * 操作列只有「删除」：编辑入口移到了首列（点昵称）。
+ *
+ * 自己那一行不能删：后端也会拦，但让按钮可点再报错是纯浪费，
+ * 所以直接禁用而不是点了再吃 400。
+ */
 const cellActions = (row: AdminUser) => (
-  <div class='flex justify-end gap-2'>
-    <NButton
-      secondary
-      type='primary'
-      size='small'
-      onClick={() => emit('edit', row)}
-    >
-      编辑
-    </NButton>
+  <div class='flex justify-end'>
     {isSelf(row) ? (
-      // 删除自己会让当前会话立刻失效，直接禁用而不是让用户点了再吃 400
       <NButton
         secondary
         type='error'
@@ -106,6 +102,12 @@ const columns = computed<DataTableColumns<AdminUser>>(() => [
     key: 'name',
     title: '昵称',
     width: 220,
+    /**
+     * 首列就是编辑入口：点昵称直接打开编辑抽屉（与书籍、书源表格保持一致）。
+     *
+     * 不用 NButton text：它内部是 inline-flex 容器，嵌进固定宽度单元格后 truncate 不生效，
+     * 长昵称会撑破列。span + min-w-0 flex-1 直接吃剩余宽度，配合 title 给原生 tooltip。
+     */
     render: (row) => (
       <div class='flex min-w-0 items-center gap-x-2'>
         <NAvatar
@@ -115,12 +117,13 @@ const columns = computed<DataTableColumns<AdminUser>>(() => [
         >
           {row.name.slice(0, 1)}
         </NAvatar>
-        <NEllipsis
-          class='min-w-0 flex-1'
-          tooltip
+        <span
+          class='min-w-0 flex-1 cursor-pointer truncate transition-[color] hover:text-primary hover:underline'
+          title={row.name}
+          onClick={() => emit('edit', row)}
         >
           {row.name}
-        </NEllipsis>
+        </span>
       </div>
     ),
   },
@@ -187,7 +190,7 @@ const columns = computed<DataTableColumns<AdminUser>>(() => [
   {
     key: 'actions',
     title: '操作',
-    width: 160,
+    width: 100,
     align: 'center',
     fixed: 'right',
     render: (row) => cellActions(row),
