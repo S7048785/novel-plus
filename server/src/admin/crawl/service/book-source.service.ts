@@ -1,8 +1,18 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { CrawlSourceRepository, type CrawlSourceSummary, type ListSourceFilter } from '../../../common/repo/crawl-source.repo.js';
+import { CrawlSourceRepository, type CrawlSourceSummary } from '../../../common/repo/crawl-source.repo.js';
 import { CrawlService } from './crawl.service.js';
+import { HttpClient, type SiteProbeResult } from '../crawler/http-client.js';
 import type { BookSource } from '../../../common/model/book-source.js';
 import type { BookSourceInput, BookSourcePatch } from '@novel-plus/shared/dto';
+import type { ListSourceQuery } from '../dto/book-source.schema.js';
+
+/** 书源列表结果：分页信封与书籍/用户列表保持一致 */
+export interface SourceListResult {
+  list: CrawlSourceSummary[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
 
 /** 书源测试结果 */
 export interface SourceTestResult {
@@ -26,10 +36,12 @@ export class BookSourceService {
   constructor(
     private readonly repo: CrawlSourceRepository,
     private readonly crawlService: CrawlService,
+    private readonly http: HttpClient,
   ) {}
 
-  list(filter: ListSourceFilter = {}): Promise<CrawlSourceSummary[]> {
-    return this.repo.findAll(filter);
+  async list(query: ListSourceQuery): Promise<SourceListResult> {
+    const { list, total } = await this.repo.findAll(query);
+    return { list, total, page: query.page, pageSize: query.pageSize };
   }
 
   /** 详情：含完整规则体 */
@@ -121,6 +133,19 @@ export class BookSourceService {
       list: outcome.list,
       error: outcome.reason,
     };
+  }
+
+  /**
+   * 站点可达性探测：这个地址现在能不能打开。
+   *
+   * 与 test 的分工：test 验证「规则能不能解析出结果」（要有 id、要有 searchUrl），
+   * probe 只验证「站点活没活」——新增书源时还没有 id、也还没写规则，可以先探一次，
+   * 免得填完二十个规则字段才发现域名早就打不开了。
+   *
+   * 不落库、不改 status：status 是采集运行时的观测值，一次人工探测不该污染它。
+   */
+  probe(url: string, charset?: string): Promise<SiteProbeResult> {
+    return this.http.probe(url, { charset });
   }
 }
 

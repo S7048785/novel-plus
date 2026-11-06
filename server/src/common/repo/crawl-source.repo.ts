@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, desc, eq, inArray, like, or } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, like, or } from 'drizzle-orm';
 import { DB, type Db } from '../../db/database.js';
 import { crawlSource, type CrawlSourceJson, type CrawlSourceRow } from '../../db/schema.js';
 import type { BookSource, BookSourceConfig } from '../model/book-source.js';
@@ -17,6 +17,9 @@ export interface CrawlSourceSummary {
 }
 
 export interface ListSourceFilter {
+  /** 页码，从 1 开始 */
+  page: number;
+  pageSize: number;
   /** 同时匹配书源名称与地址 */
   keyword?: string;
   enabled?: boolean;
@@ -62,8 +65,13 @@ export class CrawlSourceRepository {
     return toBookSource(rows[0]);
   }
 
-  /** 列表查询（不含规则体），按 id 倒序 */
-  async findAll(filter: ListSourceFilter = {}): Promise<CrawlSourceSummary[]> {
+  /**
+   * 分页列表查询（不含规则体），按 id 倒序。
+   *
+   * total 用独立的 count 查询：分页后 select 只回当页行，
+   * rows.length 是「这页有几条」，拿它当总数会让翻页器永远只有一页。
+   */
+  async findAll(filter: ListSourceFilter): Promise<{ list: CrawlSourceSummary[]; total: number }> {
     const conditions = [];
     if (filter.keyword) {
       // 转义 LIKE 通配符，避免用户输入的 % / _ 变成模糊匹配
@@ -73,8 +81,14 @@ export class CrawlSourceRepository {
     if (filter.enabled !== undefined) {
       conditions.push(eq(crawlSource.enabled, filter.enabled));
     }
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
 
-    return this.db
+    const [totalRow] = await this.db.select({ value: count() }).from(crawlSource).where(where);
+    const total = Number(totalRow?.value ?? 0);
+    // 总数为 0 时直接返回，省掉一次必然为空的列表查询
+    if (total === 0) return { list: [], total };
+
+    const list = await this.db
       .select({
         id: crawlSource.id,
         sourceName: crawlSource.sourceName,
@@ -85,8 +99,12 @@ export class CrawlSourceRepository {
         updatedAt: crawlSource.updatedAt,
       })
       .from(crawlSource)
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(desc(crawlSource.id));
+      .where(where)
+      .orderBy(desc(crawlSource.id))
+      .limit(filter.pageSize)
+      .offset((filter.page - 1) * filter.pageSize);
+
+    return { list, total };
   }
 
   /**

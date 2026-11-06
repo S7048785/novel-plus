@@ -73,9 +73,7 @@ export enum SourceStatus {
  */
 export interface BookSourceConfig {
   bookSourceName: string;
-  bookSourceGroup?: string;
   bookSourceUrl: string;
-  bookSourceType?: number;
   enabled?: boolean;
   enabledExplore?: boolean;
   /** 站点编码（默认 utf-8；gbk 站点如七步阁配 gbk），详情/目录/正文抓取时按此解码 */

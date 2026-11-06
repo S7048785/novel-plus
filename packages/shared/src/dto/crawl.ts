@@ -20,8 +20,6 @@ import { z } from 'zod';
 export const bookSourceSchema = z.looseObject({
   bookSourceName: z.string().trim().min(1, '书源名称不能为空').max(255, '书源名称最长 255 字符'),
   bookSourceUrl: z.string().trim().min(1, '书源地址不能为空').max(512, '书源地址最长 512 字符'),
-  bookSourceGroup: z.string().max(255).optional(),
-  bookSourceType: z.number().int().optional(),
   charset: z.string().max(32).optional(),
   enabled: z.boolean().optional(),
 });
@@ -35,8 +33,6 @@ export type BookSourceInput = z.infer<typeof bookSourceSchema>;
 export const bookSourcePatchSchema = z.looseObject({
   bookSourceName: z.string().trim().min(1, '书源名称不能为空').max(255).optional(),
   bookSourceUrl: z.string().trim().min(1, '书源地址不能为空').max(512).optional(),
-  bookSourceGroup: z.string().max(255).optional(),
-  bookSourceType: z.number().int().optional(),
   charset: z.string().max(32).optional(),
   enabled: z.boolean().optional(),
 });
@@ -57,6 +53,28 @@ export const testSourceSchema = z.object({
 });
 
 export type TestSourceInput = z.infer<typeof testSourceSchema>;
+
+/**
+ * 测试站点是否可访问（新增书源时先确认地址打得开，再谈规则）。
+ *
+ * 与 testSourceSchema 的区别：那个校验的是「规则写对没写对」（要书源已存在、要有 searchUrl），
+ * 这个只校验「这个地址现在能不能打开」——新增时还没有 id，没有规则，也能先探一次。
+ *
+ * 地址强制带协议：只写 `www.example.com` 时 fetch 会失败，让人摸不着头脑；
+ * 与其在后端猜着补 https://，不如在这里明确告诉调用方缺协议。
+ */
+export const probeSourceSchema = z.object({
+  url: z
+    .string()
+    .trim()
+    .min(1, '站点地址不能为空')
+    .max(512, '站点地址最长 512 字符')
+    .refine((v) => /^https?:\/\//i.test(v), '站点地址需以 http:// 或 https:// 开头'),
+  /** 站点编码；探测时用于正确解码标题（gbk 站点不传会得到乱码标题） */
+  charset: z.string().trim().max(32).optional(),
+});
+
+export type ProbeSourceInput = z.infer<typeof probeSourceSchema>;
 
 /** 单本采集：maxChapters 不传表示采全书目录 */
 export const crawlBookBodySchema = z.object({
@@ -147,9 +165,17 @@ export const crawlSourceSummarySchema = z.object({
 
 export type CrawlSourceSummary = z.infer<typeof crawlSourceSummarySchema>;
 
+/**
+ * 书源列表响应：分页结构与 bookListResponseSchema / 用户列表保持一致。
+ *
+ * total 是**满足筛选条件的总行数**（不是当前页条数）——前端分页器要靠它算页数。
+ * 早先这里返回 total=list.length，只是把当页条数回显了一遍，翻页器永远只有一页。
+ */
 export const bookSourceListResponseSchema = z.object({
   list: z.array(crawlSourceSummarySchema),
-  total: z.number().int(),
+  total: z.number().int().describe('满足筛选条件的总行数'),
+  page: z.number().int(),
+  pageSize: z.number().int(),
 });
 
 export type BookSourceListResponse = z.infer<typeof bookSourceListResponseSchema>;
@@ -158,12 +184,10 @@ export type BookSourceListResponse = z.infer<typeof bookSourceListResponseSchema
 export const bookSourceDetailSchema = z.looseObject({
   id: z.number().int().optional(),
   bookSourceName: z.string(),
-  bookSourceGroup: z.string().optional(),
   bookSourceUrl: z.string(),
-  bookSourceType: z.number().int().optional(),
   enabled: z.boolean().optional(),
   enabledExplore: z.boolean().optional(),
-  charset: z.string().optional().describe('站点编码，默认 utf-8'),
+  charset: z.string().optional().describe('站点编码，默认 utf-8；gbk 站点必填，否则正文与搜索关键词都会乱码'),
   jsLib: z.string().optional(),
   header: z.string().optional(),
   searchUrl: z.string().optional(),
@@ -198,6 +222,27 @@ export const sourceTestResponseSchema = z.object({
 });
 
 export type SourceTestResponse = z.infer<typeof sourceTestResponseSchema>;
+
+/**
+ * 站点可达性探测结果。
+ *
+ * 只如实上报，不在这里判「好坏」：200 + 30 字节的验证码页和 200 + 200KB 的正文页
+ * 都算 ok=true，区别要靠 bodyBytes / title 让管理员自己看（前端据此给提示）。
+ */
+export const sourceProbeResponseSchema = z.object({
+  ok: z.boolean().describe('最终响应是否 2xx（3xx 已被跟随）'),
+  status: z.number().int().describe('HTTP 状态码；0 表示请求没到达（DNS/超时/证书）'),
+  costMs: z.number(),
+  finalUrl: z.string().describe('跟随重定向后的最终地址'),
+  contentType: z.string().optional(),
+  bodyBytes: z.number().int().describe('响应体字节数，用于识别空壳页'),
+  charset: z.string().describe('实际用于解码的编码'),
+  title: z.string().optional().describe('页面标题，验证码页往往一眼可辨'),
+  cookieRetried: z.boolean().optional().describe('首次 403 且下发 cookie 时，带 cookie 重试是否成功'),
+  error: z.string().optional().describe('status=0 时的原因'),
+});
+
+export type SourceProbeResponse = z.infer<typeof sourceProbeResponseSchema>;
 
 /** 搜索结果条目 */
 export const searchResultSchema = z.object({

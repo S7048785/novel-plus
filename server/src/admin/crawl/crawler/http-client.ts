@@ -45,6 +45,31 @@ export interface HttpClientOptions {
   proxy?: string;
 }
 
+/** 站点可达性探测结果 */
+export interface SiteProbeResult {
+  /** 最终响应是否 2xx（3xx 已被 fetch 跟随，这里看的是跟随之后的状态） */
+  ok: boolean;
+  /** HTTP 状态码；0 = 请求没到达（DNS 解析失败、超时、证书错误等） */
+  status: number;
+  costMs: number;
+  /** 跟随重定向后的最终地址（能发现 http→https、旧域名跳转） */
+  finalUrl: string;
+  contentType?: string;
+  /** 响应体字节数（不是字符数：gbk 站点按字符算会少一半，判断空壳页会误判） */
+  bodyBytes: number;
+  /** 实际用于解码的编码，便于核对「编码填错了」 */
+  charset: string;
+  /** 页面标题，验证码页/空壳页往往一眼能看出来 */
+  title?: string;
+  /** 首次 403 且下发 cookie 时，带 cookie 重试是否成功（站点级二次验证） */
+  cookieRetried?: boolean;
+  /** status=0 时的原因 */
+  error?: string;
+}
+
+/** 可达性探测的默认超时：比采集宽松一点（要覆盖慢站），但不能让管理员干等 */
+const PROBE_TIMEOUT_MS = 10_000;
+
 /**
  * 拆出 URL 与内联 JSON 选项。
  * 只有当逗号后面是合法 JSON 对象时才拆，避免把 URL 里本来就有的逗号当分隔符。
@@ -208,6 +233,34 @@ export class HttpClient {
     url: string,
     opts: { charset: string; headers?: Record<string, string>; body?: string; timeout?: number },
   ): Promise<{ ok: boolean; body: string | null; setCookie: boolean } | null> {
+    const res = await this.fetchDetailed(method, url, opts);
+    // status=0 表示请求根本没到达，调用方（request）据此决定是否重试
+    if (res.status === 0) return null;
+    return { ok: res.ok, body: res.body, setCookie: res.setCookie };
+  }
+
+  /**
+   * 单次请求的完整结果（不重试、不吞异常原因）。
+   *
+   * 与 fetchOnce 的区别：这个版本把状态码、最终地址、错误文本都带出来，
+   * 供 probe（可达性探测）如实上报。采集路径不需要这些，所以由 fetchOnce 包一层丢掉。
+   */
+  private async fetchDetailed(
+    method: 'GET' | 'POST',
+    url: string,
+    opts: { charset: string; headers?: Record<string, string>; body?: string; timeout?: number },
+  ): Promise<{
+    ok: boolean;
+    status: number;
+    finalUrl: string;
+    contentType?: string;
+    body: string | null;
+    /** 原始字节：probe 在编码猜错时要重新解码（采集路径有显式 charset，由 fetchOnce 丢掉） */
+    buffer?: Buffer;
+    bodyBytes: number;
+    setCookie: boolean;
+    error?: string;
+  }> {
     try {
       const headers: Record<string, string> = {
         'User-Agent': this.randomUserAgent(),
@@ -227,14 +280,128 @@ export class HttpClient {
       const res = await fetch(url, init);
 
       const setCookie = this.storeCookies(url, res);
-      if (!res.ok) return { ok: false, body: null, setCookie };
+      const finalUrl = res.url || url;
+      const contentType = res.headers.get('content-type') ?? undefined;
+
+      if (!res.ok) {
+        return { ok: false, status: res.status, finalUrl, contentType, body: null, bodyBytes: 0, setCookie };
+      }
 
       const buffer = Buffer.from(await res.arrayBuffer());
-      return { ok: true, body: decode(buffer, opts.charset), setCookie };
-    } catch {
-      return null;
+      return {
+        ok: true,
+        status: res.status,
+        finalUrl,
+        contentType,
+        body: decode(buffer, opts.charset),
+        buffer,
+        bodyBytes: buffer.byteLength,
+        setCookie,
+      };
+    } catch (e) {
+      return {
+        ok: false,
+        status: 0,
+        finalUrl: url,
+        body: null,
+        bodyBytes: 0,
+        setCookie: false,
+        error: e instanceof Error ? e.message : String(e),
+      };
     }
   }
+
+  /**
+   * 站点可达性探测：判断「这个地址现在能不能打开」。
+   *
+   * 与 get() 的取舍正好相反：get 为采集服务（失败重试、短页面判失败、只回正文），
+   * probe 为**人工判断**服务——一次请求、如实上报状态码/耗时/最终地址/标题，
+   * 不因为页面短就重试，否则管理员永远看不到「站点返回了 200 但只有 30 字节的验证码页」。
+   *
+   * 但 cookie 会话是例外：403 + Set-Cookie 属于站点级二次验证，
+   * 采集路径会自动带 cookie 重发，探测也必须走同一套，否则会出现「测试说打不开、采集却正常」。
+   */
+  async probe(
+    rawUrl: string,
+    opts: { charset?: string; headers?: Record<string, string>; timeout?: number } = {},
+  ): Promise<SiteProbeResult> {
+    const { url, options } = parseUrlOptions(rawUrl);
+    // 「显式指定」= 调用方传了，或书源地址里内联了 charset。两者都没有才去嗅探
+    const explicitCharset = opts.charset ?? options.charset;
+    const initialCharset = explicitCharset ?? 'utf-8';
+    const headers = { ...options.headers, ...opts.headers };
+    const timeout = opts.timeout ?? options.timeout ?? PROBE_TIMEOUT_MS;
+    const startedAt = Date.now();
+
+    let res = await this.fetchDetailed('GET', url, { charset: initialCharset, headers, timeout });
+    let cookieRetried: boolean | undefined;
+
+    if (!res.ok && res.setCookie) {
+      const retry = await this.fetchDetailed('GET', url, { charset: initialCharset, headers, timeout });
+      cookieRetried = retry.ok;
+      res = retry;
+    }
+
+    /**
+     * 没给出编码时按响应头/meta 修正一次。
+     *
+     * 批量测试只能拿到书源名与地址（列表接口不带 json 配置里的 charset），
+     * 不修正就会把 GBK 站点的标题报成乱码——看起来像站点坏了，其实是探测解错了码。
+     */
+    let charset = initialCharset;
+    let body = res.body;
+    if (!explicitCharset && res.body !== null && res.buffer) {
+      const sniffed = sniffCharset(res.body, res.contentType);
+      if (sniffed && sniffed !== initialCharset) {
+        charset = sniffed;
+        body = decode(res.buffer, sniffed);
+      }
+    }
+
+    return {
+      ok: res.ok,
+      status: res.status,
+      costMs: Date.now() - startedAt,
+      finalUrl: res.finalUrl,
+      contentType: res.contentType,
+      bodyBytes: res.bodyBytes,
+      charset,
+      title: body ? extractTitle(body) : undefined,
+      cookieRetried,
+      error: res.error,
+    };
+  }
+}
+
+/**
+ * 从响应头或 HTML 头部嗅探编码。
+ *
+ * 为什么「先按 utf-8 解一遍再嗅探」是可行的：`<meta charset="gbk">` 这段声明本身是纯 ASCII，
+ * 用 utf-8 解码仍然正确，只有正文会乱码。所以拿解码结果找声明、再用声明的编码重读一遍即可，
+ * 不需要额外依赖，也不用先猜字节序。
+ */
+function sniffCharset(html: string, contentType?: string): string | undefined {
+  const fromHeader = /charset\s*=\s*["']?([\w-]+)/i.exec(contentType ?? '')?.[1];
+  if (fromHeader) return normalizeCharset(fromHeader);
+
+  // 只看前 4KB：charset 声明必须在文档头部，通读整页没有意义
+  const head = html.slice(0, 4096);
+  const fromMeta = /<meta[^>]+charset\s*=\s*["']?([\w-]+)/i.exec(head)?.[1];
+  return fromMeta ? normalizeCharset(fromMeta) : undefined;
+}
+
+/** gb2312 / gb_2312-80 统一按 gbk 解：GBK 是 GB2312 的超集，用超集解码不会丢字 */
+function normalizeCharset(value: string): string {
+  const cs = value.toLowerCase();
+  return cs === 'gb2312' || cs === 'gb_2312-80' ? 'gbk' : cs;
+}
+
+/** 从 HTML 里取 <title>；取不到就 undefined（不是空串，前端好判断） */
+function extractTitle(html: string): string | undefined {
+  const match = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(html);
+  if (!match) return undefined;
+  const title = match[1].replace(/\s+/g, ' ').trim();
+  return title === '' ? undefined : title.slice(0, 200);
 }
 
 /** 按 charset 解码（Node 内置 TextDecoder 支持 gbk/gb2312/big5 等） */

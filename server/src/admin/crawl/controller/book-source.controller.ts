@@ -9,11 +9,14 @@ import {
   bookSourceSchema,
   deleteResponseSchema,
   idResponseSchema,
+  probeSourceSchema,
+  sourceProbeResponseSchema,
   sourceTestResponseSchema,
   testSourceSchema,
   type BatchDeleteSourceInput,
   type BookSourceInput,
   type BookSourcePatch,
+  type ProbeSourceInput,
   type TestSourceInput,
 } from '@novel-plus/shared/dto';
 import {
@@ -39,12 +42,11 @@ type IdParams = { id: number };
 export class BookSourceController {
   constructor(private readonly service: BookSourceService) {}
 
-  /** 书源列表（不含规则体），支持按名称/地址关键字与启用状态筛选 */
+  /** 书源列表（不含规则体），分页 + 按名称/地址关键字与启用状态筛选 */
   @Get()
   @ApiZodOk(bookSourceListResponseSchema)
-  async list(@Query({ schema: listSourceQuerySchema }) query: ListSourceQuery) {
-    const list = await this.service.list(query);
-    return { list, total: list.length };
+  list(@Query({ schema: listSourceQuerySchema }) query: ListSourceQuery) {
+    return this.service.list(query);
   }
 
   /** 书源详情（含完整规则体） */
@@ -88,6 +90,19 @@ export class BookSourceController {
   @ApiZodOk(batchDeleteResponseSchema)
   removeMany(@Body({ schema: batchDeleteSourceSchema }) body: BatchDeleteSourceInput) {
     return this.service.removeMany(body.ids);
+  }
+
+  /**
+   * 探测站点是否可访问。
+   *
+   * 不挂在 `:id` 下：新增书源时还没有 id，这一步是「填完地址先探一眼」，
+   * 不需要任何已存在的记录。POST 默认 201，这里显式 200（不是创建资源）。
+   */
+  @Post('probe')
+  @HttpCode(HttpStatus.OK)
+  @ApiZodOk(sourceProbeResponseSchema)
+  probe(@Body({ schema: probeSourceSchema }) body: ProbeSourceInput) {
+    return this.service.probe(body.url, body.charset);
   }
 
   /** 测试书源：用关键词跑一次搜索，返回命中结果与耗时 */

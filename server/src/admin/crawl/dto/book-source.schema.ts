@@ -11,8 +11,15 @@ export { idParamsSchema, idSchema } from '../../../common/dto/common.schema.js';
  * 需要 transform 成 boolean，前端手里已经是布尔值，不消费这层。
  */
 
-/** 列表筛选：keyword 同时匹配名称与地址；enabled 只接受 'true'/'false' 字符串 */
+/**
+ * 列表筛选：keyword 同时匹配名称与地址；enabled 只接受 'true'/'false' 字符串。
+ *
+ * 分页与 book/user 列表同构（page 从 1 开始，pageSize 上限 100），
+ * 默认值放在这里而不是 service：URL 不带参数时也应是「第 1 页 20 条」。
+ */
 export const listSourceQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100, 'pageSize 最大 100').default(20),
   keyword: z.string().trim().min(1).optional(),
   enabled: z
     .enum(['true', 'false'])
