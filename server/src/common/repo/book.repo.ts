@@ -175,10 +175,6 @@ export class BookRepository {
     await this.db.update(book).set(set).where(eq(book.id, id));
   }
 
-  async updateTotalChapterNum(id: number, total: number): Promise<void> {
-    await this.db.update(book).set({ totalChapterNum: total, updatedAt: new Date() }).where(eq(book.id, id));
-  }
-
   /**
    * 后台管理：分页列表 + 筛选。
    *

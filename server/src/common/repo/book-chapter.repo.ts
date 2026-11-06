@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, count, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, sql } from 'drizzle-orm';
 import { DB, type Db } from '../../db/database.js';
 import { bookChapter, bookContent } from '../../db/schema.js';
 
@@ -140,6 +140,38 @@ export class BookChapterRepository {
       .from(bookChapter)
       .where(eq(bookChapter.bookId, bookId));
     return Number(row?.value ?? -1);
+  }
+
+  /**
+   * 采集后统计：以实际落库数据为准的三个统计值。
+   *
+   * - total：book_chapter 实际章节数（不是目录解析条数——增量/限量采集后两者不同）
+   * - latestTitle：index 最大的章节标题（采集顺序即目录顺序，最后一章 = 源站最新章节）
+   * - wordCount：全部正文的字符数总和（CHAR_LENGTH，含标点换行；与源站标称口径可能略有差异）
+   */
+  async collectStats(bookId: number): Promise<{ total: number; latestTitle: string | null; wordCount: number }> {
+    const [row] = await this.db
+      .select({
+        total: count(),
+        // CHAR_LENGTH 返回 BIGINT，cast 成 signed 让 mysql2 给 number（与 summarySelection 同理）
+        words: sql<number>`cast(coalesce(sum(char_length(${bookContent.content})), 0) as signed)`,
+      })
+      .from(bookChapter)
+      .leftJoin(bookContent, eq(bookContent.chapterId, bookChapter.id))
+      .where(eq(bookChapter.bookId, bookId));
+
+    const [latest] = await this.db
+      .select({ title: bookChapter.title })
+      .from(bookChapter)
+      .where(eq(bookChapter.bookId, bookId))
+      .orderBy(desc(bookChapter.index))
+      .limit(1);
+
+    return {
+      total: Number(row?.total ?? 0),
+      wordCount: Number(row?.words ?? 0),
+      latestTitle: latest?.title ?? null,
+    };
   }
 
   /**
