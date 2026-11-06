@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { BookRepository, type BookMetadataPatch as RepoMetadataPatch, type BookSummary } from '../../../common/repo/book.repo.js';
 import { CrawlSourceRepository } from '../../../common/repo/crawl-source.repo.js';
-import { DEFAULT_BOOK_ORIGIN } from '../../../common/book/origin.js';
+import { DEFAULT_BOOK_ORIGIN } from '@novel-plus/shared';
 import type { BookMetadataInput, BookMetadataPatch, CreateBookInput } from '@novel-plus/shared/dto';
 import type { ListBookQuery } from '../dto/book.query.schema.js';
 
