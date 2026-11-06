@@ -11,6 +11,9 @@ import { NButton, NInput, NSelect } from 'naive-ui'
  * 下拉的 model 名是通用的 `filter` 而不是 `origin` / `role`：各模块的筛选语义不同，
  * 用泛型 `T` 保留具体值域（书籍是 BOOK_ORIGINS，用户是 USER_ROLES），父级的类型不会被削成 string。
  *
+ * T 不能放宽到 boolean：NSelect 的 value 只接受 `string | number`（naive-ui 的值域类型），
+ * 布尔筛选要在模块自己的常量里先映射成字符串（如书源的 'enabled' / 'disabled'）。
+ *
  * 宽度用内联 px + shrink-0：naive-ui 的未分层样式会压掉工具类，只能靠 !important，
  * 内联样式是这里更省事的选择。
  */

@@ -84,6 +84,34 @@ export const menu: MenuMixedOptions[] = [
     component: 'book/ChapterManage',
   },
   {
+    /**
+     * 爬虫管理：采集相关的配置都在这里，与「书籍管理」（已入库内容）刻意分开——
+     * 书源是采集的输入，改一条会影响所有依赖它的书的采集结果。
+     */
+    path: 'crawl',
+    name: 'crawl',
+    icon: 'ph:globe-hemisphere-west',
+    label: '爬虫管理',
+    redirect: 'crawl/source',
+    meta: {
+      roles: ['admin'],
+    },
+    children: [
+      {
+        path: 'source',
+        name: 'crawlSource',
+        icon: 'ph:database',
+        label: '书源管理',
+        meta: {
+          componentName: 'CrawlSource',
+          title: '书源管理',
+          roles: ['admin'],
+        },
+        component: 'crawl/source/index',
+      },
+    ],
+  },
+  {
     path: 'user',
     name: 'userList',
     icon: 'ph:users',
