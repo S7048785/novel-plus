@@ -1,7 +1,7 @@
 import { BadGatewayException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { extractListFromHtml, extractListFromJson } from '../parser/rule-engine.js';
 import { resolveUrl } from '../crawler/url.js';
-import type { HttpClient } from '../crawler/http-client.js';
+import { HttpClient } from '../crawler/http-client.js';
 import { CrawlSourceRepository } from '../../../common/repo/crawl-source.repo.js';
 import { BookRepository } from '../../../common/repo/book.repo.js';
 import { BookChapterRepository } from '../../../common/repo/book-chapter.repo.js';
