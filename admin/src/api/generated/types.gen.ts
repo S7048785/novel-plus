@@ -59,11 +59,7 @@ export type AuthMeResponse = AuthMeResponses[keyof AuthMeResponses];
 export type CrawlSearchData = {
     body?: never;
     path?: never;
-    query: {
-        sourceId: number;
-        key: string;
-        page?: number;
-    };
+    query?: never;
     url: '/api/admin/crawl/search';
 };
 
@@ -85,9 +81,7 @@ export type CrawlSearchResponse = CrawlSearchResponses[keyof CrawlSearchResponse
 export type CrawlBookDetailData = {
     body?: never;
     path?: never;
-    query: {
-        url: string;
-    };
+    query?: never;
     url: '/api/admin/crawl/book-detail';
 };
 
@@ -109,11 +103,7 @@ export type CrawlBookDetailResponses = {
 export type CrawlBookDetailResponse = CrawlBookDetailResponses[keyof CrawlBookDetailResponses];
 
 export type CrawlBookData = {
-    body: {
-        sourceId: number;
-        bookUrl: string;
-        maxChapters?: number;
-    };
+    body?: never;
     path?: never;
     query?: never;
     url: '/api/admin/crawl/book';
@@ -132,11 +122,7 @@ export type CrawlBookResponses = {
 export type CrawlBookResponse = CrawlBookResponses[keyof CrawlBookResponses];
 
 export type CrawlRuleTestData = {
-    body: {
-        rule: string;
-        content: string;
-        baseUrl?: string;
-    };
+    body?: never;
     path?: never;
     query?: never;
     url: '/api/admin/crawl/test';
@@ -156,12 +142,7 @@ export type CrawlRuleTestResponse = CrawlRuleTestResponses[keyof CrawlRuleTestRe
 export type BooksourceListData = {
     body?: never;
     path?: never;
-    query?: {
-        page?: number;
-        pageSize?: number;
-        keyword?: string;
-        enabled?: 'true' | 'false';
-    };
+    query?: never;
     url: '/api/admin/crawl/source';
 };
 
@@ -176,6 +157,10 @@ export type BooksourceListResponses = {
              * 0=可用，1=不可用（采集失败时自动标记）
              */
             status: number;
+            /**
+             * 备注，用户手动维护
+             */
+            comment: string | null;
             /**
              * ISO 8601 时间字符串
              */
@@ -197,13 +182,7 @@ export type BooksourceListResponses = {
 export type BooksourceListResponse = BooksourceListResponses[keyof BooksourceListResponses];
 
 export type BooksourceCreateData = {
-    body: {
-        bookSourceName: string;
-        bookSourceUrl: string;
-        charset?: string;
-        enabled?: boolean;
-        [key: string]: unknown;
-    };
+    body?: never;
     path?: never;
     query?: never;
     url: '/api/admin/crawl/source';
@@ -219,9 +198,7 @@ export type BooksourceCreateResponse = BooksourceCreateResponses[keyof Booksourc
 
 export type BooksourceRemoveData = {
     body?: never;
-    path: {
-        id: number;
-    };
+    path?: never;
     query?: never;
     url: '/api/admin/crawl/source/{id}';
 };
@@ -240,9 +217,7 @@ export type BooksourceRemoveResponse = BooksourceRemoveResponses[keyof Booksourc
 
 export type BooksourceGetData = {
     body?: never;
-    path: {
-        id: number;
-    };
+    path?: never;
     query?: never;
     url: '/api/admin/crawl/source/{id}';
 };
@@ -254,6 +229,7 @@ export type BooksourceGetResponses = {
         bookSourceUrl: string;
         enabled?: boolean;
         enabledExplore?: boolean;
+        comment?: string | null;
         /**
          * 站点编码，默认 utf-8；gbk 站点必填，否则正文与搜索关键词都会乱码
          */
@@ -338,16 +314,8 @@ export type BooksourceGetResponses = {
 export type BooksourceGetResponse = BooksourceGetResponses[keyof BooksourceGetResponses];
 
 export type BooksourcePatchData = {
-    body: {
-        bookSourceName?: string;
-        bookSourceUrl?: string;
-        charset?: string;
-        enabled?: boolean;
-        [key: string]: unknown;
-    };
-    path: {
-        id: number;
-    };
+    body?: never;
+    path?: never;
     query?: never;
     url: '/api/admin/crawl/source/{id}';
 };
@@ -361,16 +329,8 @@ export type BooksourcePatchResponses = {
 export type BooksourcePatchResponse = BooksourcePatchResponses[keyof BooksourcePatchResponses];
 
 export type BooksourceReplaceData = {
-    body: {
-        bookSourceName: string;
-        bookSourceUrl: string;
-        charset?: string;
-        enabled?: boolean;
-        [key: string]: unknown;
-    };
-    path: {
-        id: number;
-    };
+    body?: never;
+    path?: never;
     query?: never;
     url: '/api/admin/crawl/source/{id}';
 };
@@ -384,9 +344,7 @@ export type BooksourceReplaceResponses = {
 export type BooksourceReplaceResponse = BooksourceReplaceResponses[keyof BooksourceReplaceResponses];
 
 export type BooksourceRemoveManyData = {
-    body: {
-        ids: Array<number>;
-    };
+    body?: never;
     path?: never;
     query?: never;
     url: '/api/admin/crawl/source/batch-delete';
@@ -405,10 +363,7 @@ export type BooksourceRemoveManyResponses = {
 export type BooksourceRemoveManyResponse = BooksourceRemoveManyResponses[keyof BooksourceRemoveManyResponses];
 
 export type BooksourceProbeData = {
-    body: {
-        url: string;
-        charset?: string;
-    };
+    body?: never;
     path?: never;
     query?: never;
     url: '/api/admin/crawl/source/probe';
@@ -456,13 +411,8 @@ export type BooksourceProbeResponses = {
 export type BooksourceProbeResponse = BooksourceProbeResponses[keyof BooksourceProbeResponses];
 
 export type BooksourceTestData = {
-    body: {
-        key: string;
-        page?: number;
-    };
-    path: {
-        id: number;
-    };
+    body?: never;
+    path?: never;
     query?: never;
     url: '/api/admin/crawl/source/{id}/test';
 };
@@ -489,13 +439,7 @@ export type BooksourceTestResponse = BooksourceTestResponses[keyof BooksourceTes
 export type BookListData = {
     body?: never;
     path?: never;
-    query?: {
-        page?: number;
-        pageSize?: number;
-        keyword?: string;
-        sourceId?: number;
-        origin?: 'crawl' | 'author' | 'manual';
-    };
+    query?: never;
     url: '/api/admin/book';
 };
 
@@ -554,16 +498,7 @@ export type BookListResponses = {
 export type BookListResponse = BookListResponses[keyof BookListResponses];
 
 export type BookCreateData = {
-    body: {
-        name: string;
-        bookUrl?: string | null;
-        sourceId?: number | null;
-        tocUrl?: string | null;
-        origin?: 'crawl' | 'author' | 'manual';
-        author?: string | null;
-        coverUrl?: string | null;
-        intro?: string | null;
-    };
+    body?: never;
     path?: never;
     query?: never;
     url: '/api/admin/book';
@@ -579,9 +514,7 @@ export type BookCreateResponse = BookCreateResponses[keyof BookCreateResponses];
 
 export type BookRemoveData = {
     body?: never;
-    path: {
-        id: number;
-    };
+    path?: never;
     query?: never;
     url: '/api/admin/book/{id}';
 };
@@ -600,9 +533,7 @@ export type BookRemoveResponse = BookRemoveResponses[keyof BookRemoveResponses];
 
 export type BookGetData = {
     body?: never;
-    path: {
-        id: number;
-    };
+    path?: never;
     query?: never;
     url: '/api/admin/book/{id}';
 };
@@ -657,16 +588,8 @@ export type BookGetResponses = {
 export type BookGetResponse = BookGetResponses[keyof BookGetResponses];
 
 export type BookPatchData = {
-    body: {
-        name?: string;
-        origin?: 'crawl' | 'author' | 'manual';
-        author?: string | null;
-        coverUrl?: string | null;
-        intro?: string | null;
-    };
-    path: {
-        id: number;
-    };
+    body?: never;
+    path?: never;
     query?: never;
     url: '/api/admin/book/{id}';
 };
@@ -680,16 +603,8 @@ export type BookPatchResponses = {
 export type BookPatchResponse = BookPatchResponses[keyof BookPatchResponses];
 
 export type BookReplaceData = {
-    body: {
-        name: string;
-        origin?: 'crawl' | 'author' | 'manual';
-        author?: string | null;
-        coverUrl?: string | null;
-        intro?: string | null;
-    };
-    path: {
-        id: number;
-    };
+    body?: never;
+    path?: never;
     query?: never;
     url: '/api/admin/book/{id}';
 };
@@ -703,9 +618,7 @@ export type BookReplaceResponses = {
 export type BookReplaceResponse = BookReplaceResponses[keyof BookReplaceResponses];
 
 export type BookRemoveManyData = {
-    body: {
-        ids: Array<number>;
-    };
+    body?: never;
     path?: never;
     query?: never;
     url: '/api/admin/book/batch-delete';
@@ -725,13 +638,8 @@ export type BookRemoveManyResponse = BookRemoveManyResponses[keyof BookRemoveMan
 
 export type BookchapterListData = {
     body?: never;
-    path: {
-        bookId: number;
-    };
-    query?: {
-        page?: number;
-        pageSize?: number;
-    };
+    path?: never;
+    query?: never;
     url: '/api/admin/book/{bookId}/chapter';
 };
 
@@ -768,15 +676,8 @@ export type BookchapterListResponses = {
 export type BookchapterListResponse = BookchapterListResponses[keyof BookchapterListResponses];
 
 export type BookchapterCreateData = {
-    body: {
-        title: string;
-        url?: string | null;
-        index?: number;
-        content?: string | null;
-    };
-    path: {
-        bookId: number;
-    };
+    body?: never;
+    path?: never;
     query?: never;
     url: '/api/admin/book/{bookId}/chapter';
 };
@@ -791,10 +692,7 @@ export type BookchapterCreateResponse = BookchapterCreateResponses[keyof Bookcha
 
 export type BookchapterRemoveData = {
     body?: never;
-    path: {
-        bookId: number;
-        chapterId: number;
-    };
+    path?: never;
     query?: never;
     url: '/api/admin/book/{bookId}/chapter/{chapterId}';
 };
@@ -813,10 +711,7 @@ export type BookchapterRemoveResponse = BookchapterRemoveResponses[keyof Bookcha
 
 export type BookchapterGetData = {
     body?: never;
-    path: {
-        bookId: number;
-        chapterId: number;
-    };
+    path?: never;
     query?: never;
     url: '/api/admin/book/{bookId}/chapter/{chapterId}';
 };
@@ -850,16 +745,8 @@ export type BookchapterGetResponses = {
 export type BookchapterGetResponse = BookchapterGetResponses[keyof BookchapterGetResponses];
 
 export type BookchapterUpdateData = {
-    body: {
-        title?: string;
-        url?: string | null;
-        index?: number;
-        content?: string | null;
-    };
-    path: {
-        bookId: number;
-        chapterId: number;
-    };
+    body?: never;
+    path?: never;
     query?: never;
     url: '/api/admin/book/{bookId}/chapter/{chapterId}';
 };
@@ -873,12 +760,8 @@ export type BookchapterUpdateResponses = {
 export type BookchapterUpdateResponse = BookchapterUpdateResponses[keyof BookchapterUpdateResponses];
 
 export type BookchapterRemoveManyData = {
-    body: {
-        ids: Array<number>;
-    };
-    path: {
-        bookId: number;
-    };
+    body?: never;
+    path?: never;
     query?: never;
     url: '/api/admin/book/{bookId}/chapter/batch-delete';
 };
@@ -898,12 +781,7 @@ export type BookchapterRemoveManyResponse = BookchapterRemoveManyResponses[keyof
 export type UserListData = {
     body?: never;
     path?: never;
-    query?: {
-        page?: number;
-        pageSize?: number;
-        keyword?: string;
-        role?: 'reader' | 'author' | 'admin';
-    };
+    query?: never;
     url: '/api/admin/users';
 };
 
@@ -946,13 +824,7 @@ export type UserListResponses = {
 export type UserListResponse = UserListResponses[keyof UserListResponses];
 
 export type UserCreateData = {
-    body: {
-        email: string;
-        name: string;
-        password: string;
-        image?: string | null;
-        roles?: Array<'author' | 'admin'>;
-    };
+    body?: never;
     path?: never;
     query?: never;
     url: '/api/admin/users';
@@ -968,9 +840,7 @@ export type UserCreateResponse = UserCreateResponses[keyof UserCreateResponses];
 
 export type UserRemoveData = {
     body?: never;
-    path: {
-        id: string;
-    };
+    path?: never;
     query?: never;
     url: '/api/admin/users/{id}';
 };
@@ -989,9 +859,7 @@ export type UserRemoveResponse = UserRemoveResponses[keyof UserRemoveResponses];
 
 export type UserGetData = {
     body?: never;
-    path: {
-        id: string;
-    };
+    path?: never;
     query?: never;
     url: '/api/admin/users/{id}';
 };
@@ -1030,15 +898,8 @@ export type UserGetResponses = {
 export type UserGetResponse = UserGetResponses[keyof UserGetResponses];
 
 export type UserPatchData = {
-    body: {
-        email?: string;
-        name?: string;
-        image?: string | null;
-        roles?: Array<'author' | 'admin'>;
-    };
-    path: {
-        id: string;
-    };
+    body?: never;
+    path?: never;
     query?: never;
     url: '/api/admin/users/{id}';
 };
@@ -1052,9 +913,7 @@ export type UserPatchResponses = {
 export type UserPatchResponse = UserPatchResponses[keyof UserPatchResponses];
 
 export type UserRemoveManyData = {
-    body: {
-        ids: Array<string>;
-    };
+    body?: never;
     path?: never;
     query?: never;
     url: '/api/admin/users/batch-delete';
