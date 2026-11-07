@@ -31,6 +31,9 @@ export function useSourceForm() {
   const enabled = ref(true)
   const enabledExplore = ref(false)
 
+  /** 备注：DB 标量列，纯给人看的说明文字，与规则 JSON 无关 */
+  const comment = ref('')
+
   /** 采集配置（整个书源规则 JSON），详见 source-config.ts 顶部的说明 */
   const configJson = ref('{}')
 
@@ -42,6 +45,7 @@ export function useSourceForm() {
     // 新建默认启用：建书源的目的就是用它，默认停用还得再点一下开关
     enabled.value = true
     enabledExplore.value = false
+    comment.value = ''
     configJson.value = '{}'
   }
 
@@ -51,6 +55,7 @@ export function useSourceForm() {
     charset.value = detail.charset ?? 'utf-8'
     enabled.value = detail.enabled ?? false
     enabledExplore.value = detail.enabledExplore ?? false
+    comment.value = detail.comment ?? ''
     configJson.value = JSON.stringify(extractConfig(detail), null, 2)
   }
 
@@ -87,6 +92,7 @@ export function useSourceForm() {
       charset: charset.value,
       enabled: enabled.value,
       enabledExplore: enabledExplore.value,
+      comment: comment.value,
       configJson: configJson.value,
     })
   }
@@ -97,6 +103,7 @@ export function useSourceForm() {
     charset,
     enabled,
     enabledExplore,
+    comment,
     configJson,
     configError,
     formModel,

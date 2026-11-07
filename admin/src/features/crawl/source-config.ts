@@ -24,6 +24,7 @@ export const FORM_OWNED_KEYS = [
   'enabled',
   'enabledExplore',
   'charset',
+  'comment',
   'id',
   'status',
 ] as const
@@ -99,6 +100,8 @@ export interface SourceFormSnapshot {
   charset: string
   enabled: boolean
   enabledExplore: boolean
+  /** 备注（DB 标量列，与规则 JSON 无关）；空串提交时不携带（后端清空该列） */
+  comment: string
   /** 采集配置的 JSON 文本，调用前应先过 checkConfigJson */
   configJson: string
 }
@@ -126,6 +129,7 @@ export function buildSourcePayload(form: SourceFormSnapshot): BookSourceInput {
     charset: textOrUndefined(form.charset),
     enabled: form.enabled,
     enabledExplore: form.enabledExplore,
+    comment: textOrUndefined(form.comment),
     // 采集配置整段展开：后端 bookSourceSchema 是 looseObject，不认识的键也照样入库
     ...config,
   } as BookSourceInput

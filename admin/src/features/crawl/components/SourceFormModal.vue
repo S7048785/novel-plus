@@ -82,6 +82,7 @@ const {
   charset,
   enabled,
   enabledExplore,
+  comment,
   configJson,
   configError,
   formModel,
@@ -263,6 +264,21 @@ async function handleSubmitClick() {
               </div>
             </NFormItem>
 
+            <NFormItem
+              label="备注"
+              path="comment"
+            >
+              <NInput
+                v-model:value="comment"
+                type="textarea"
+                placeholder="选填，记录书源来源、用途等说明（最长 512 字符）"
+                :autosize="{ minRows: 1, maxRows: 8 }"
+                :maxlength="512"
+                show-count
+                clearable
+              />
+            </NFormItem>
+
             <NDivider title-placement="left">
               抓取与解析配置
             </NDivider>
@@ -287,7 +303,7 @@ async function handleSubmitClick() {
                 ruleToc、ruleContent、ruleExplore 五组规则；未写的键视为不配置。
               </span>
               <span>header 也可写成键值对象，保存时自动转成字符串。</span>
-              <span>名称、地址、开关由上方表单维护，写在这里会被忽略。</span>
+              <span>名称、地址、开关、备注由上方表单维护，写在这里会被忽略。</span>
             </div>
           </NForm>
         </NSpin>

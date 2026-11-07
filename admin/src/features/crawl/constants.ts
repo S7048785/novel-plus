@@ -46,5 +46,6 @@ export const SOURCE_STATUS_TAG_TYPE: Record<number, 'success' | 'error'> = {
  * 不给或给小了，列会被压扁换行而不是出现滚动条。改列宽时记得同步这里。
  *
  * 操作列从 200 收到 150 是因为「编辑」按钮移到了首列（点书源名称进编辑）。
+ * comment（备注）刻意不上表格：它只在编辑抽屉里展示/编辑，列表页不需要。
  */
 export const TABLE_SCROLL_X = 1150
