@@ -12,6 +12,7 @@ export interface CrawlSourceSummary {
   sourceUrl: string;
   enabled: boolean;
   status: number;
+  comment: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -45,6 +46,7 @@ export class CrawlSourceRepository {
         sourceName: data.bookSourceName,
         enabled: data.enabled ?? false,
         status: SourceStatus.AVAILABLE,
+        comment: data.comment ?? null,
         json: serializeConfig(data),
         createdAt: now,
         updatedAt: now,
@@ -95,6 +97,7 @@ export class CrawlSourceRepository {
         sourceUrl: crawlSource.sourceUrl,
         enabled: crawlSource.enabled,
         status: crawlSource.status,
+        comment: crawlSource.comment,
         createdAt: crawlSource.createdAt,
         updatedAt: crawlSource.updatedAt,
       })
@@ -140,6 +143,7 @@ export class CrawlSourceRepository {
   /**
    * 覆盖已有书源的配置（按 id），用于书源规则重新导入/修正。
    * 只改配置与展示字段，不动运行状态 status（那是采集运行时的观测值）。
+   * comment 随配置一起全量覆盖：PUT 语义是「未携带即清空」，PATCH 由 service 先 merge。
    */
   async updateConfig(id: number, data: BookSource): Promise<void> {
     await this.db
@@ -148,6 +152,7 @@ export class CrawlSourceRepository {
         sourceUrl: data.bookSourceUrl,
         sourceName: data.bookSourceName,
         enabled: data.enabled ?? false,
+        comment: data.comment ?? null,
         json: serializeConfig(data),
         updatedAt: new Date(),
       })
@@ -155,16 +160,16 @@ export class CrawlSourceRepository {
   }
 }
 
-/** BookSource → json 列值（去掉 id/status 标量列，只留配置） */
+/** BookSource → json 列值（去掉 id/status/comment 标量列，只留配置） */
 function serializeConfig(source: BookSource): CrawlSourceJson {
-  const { id: _id, status: _status, ...config } = source;
+  const { id: _id, status: _status, comment: _comment, ...config } = source;
   return config;
 }
 
-/** DB 行 → 领域模型：json 列反序列化 + status 标量列单独映射 */
+/** DB 行 → 领域模型：json 列反序列化 + status/comment 标量列单独映射 */
 function toBookSource(row: CrawlSourceRow): BookSource {
   const config = deserializeConfig(row.json);
-  return { ...config, id: row.id, status: row.status as SourceStatus };
+  return { ...config, id: row.id, status: row.status as SourceStatus, comment: row.comment };
 }
 
 /**

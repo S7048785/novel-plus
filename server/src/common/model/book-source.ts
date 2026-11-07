@@ -91,12 +91,14 @@ export interface BookSourceConfig {
 }
 
 /**
- * 书源运行时实体 = 配置（json 列）+ DB 标量列（id / status）
+ * 书源运行时实体 = 配置（json 列）+ DB 标量列（id / status / comment）
  */
 export interface BookSource extends BookSourceConfig {
   id?: number;
   /** 运行状态（DB 标量列，采集时用于判断是否跳过） */
   status?: SourceStatus;
+  /** 备注（DB 标量列，用户手动维护；json 配置里不存它） */
+  comment?: string | null;
 }
 
 /** 搜索结果条目 */

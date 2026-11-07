@@ -22,6 +22,8 @@ export const bookSourceSchema = z.looseObject({
   bookSourceUrl: z.string().trim().min(1, '书源地址不能为空').max(512, '书源地址最长 512 字符'),
   charset: z.string().max(32).optional(),
   enabled: z.boolean().optional(),
+  /** 备注（DB 标量列，与 json 规则配置无关）；不传表示清空 */
+  comment: z.string().trim().max(512, '备注最长 512 字符').optional(),
 });
 
 export type BookSourceInput = z.infer<typeof bookSourceSchema>;
@@ -35,6 +37,7 @@ export const bookSourcePatchSchema = z.looseObject({
   bookSourceUrl: z.string().trim().min(1, '书源地址不能为空').max(512).optional(),
   charset: z.string().max(32).optional(),
   enabled: z.boolean().optional(),
+  comment: z.string().trim().max(512, '备注最长 512 字符').optional(),
 });
 
 export type BookSourcePatch = z.infer<typeof bookSourcePatchSchema>;
@@ -159,6 +162,7 @@ export const crawlSourceSummarySchema = z.object({
   sourceUrl: z.string(),
   enabled: z.boolean(),
   status: z.number().int().describe('0=可用，1=不可用（采集失败时自动标记）'),
+  comment: z.string().nullable().describe('备注，用户手动维护'),
   createdAt: dateTime,
   updatedAt: dateTime,
 });
@@ -187,6 +191,8 @@ export const bookSourceDetailSchema = z.looseObject({
   bookSourceUrl: z.string(),
   enabled: z.boolean().optional(),
   enabledExplore: z.boolean().optional(),
+  /** 备注（DB 标量列），可空 */
+  comment: z.string().nullable().optional(),
   charset: z.string().optional().describe('站点编码，默认 utf-8；gbk 站点必填，否则正文与搜索关键词都会乱码'),
   jsLib: z.string().optional(),
   header: z.string().optional(),
