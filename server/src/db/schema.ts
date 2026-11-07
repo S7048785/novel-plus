@@ -38,6 +38,8 @@ export const crawlSource = mysqlTable(
     sourceName: varchar('source_name', { length: 255 }).notNull(),
     enabled: boolean('enabled').notNull().default(false),
     status: tinyint('status').notNull().default(0),
+    /** 备注：用户手动维护的说明文字，与 json 列里的规则配置无关 */
+    comment: varchar('comment', { length: 512 }),
     json: json('json').notNull(),
     createdAt: datetime('created_at').notNull(),
     updatedAt: datetime('updated_at').notNull(),

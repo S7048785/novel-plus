@@ -1,0 +1,1 @@
+ALTER TABLE `crawl_source` ADD `comment` varchar(512);
